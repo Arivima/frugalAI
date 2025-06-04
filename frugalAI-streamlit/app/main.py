@@ -1,5 +1,4 @@
 # TODO V1
-# logger
 # api fonctionnelle
 # gestion du cache et du state
 
@@ -11,16 +10,26 @@
 
 import streamlit as st
 import requests
+import logging
 from pydantic import BaseModel, ValidationError, Field
 from typing import Optional, Annotated
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = logging.getLogger(__name__)
+
+
 API_URL = "https://mock-api.example.com/classify"
+
 
 class PayloadModel(BaseModel):
     """Payload should be a str, non empty, min length : 1, strips whitespace"""
     user_claim: Annotated[str, Field(strip_whitespace=True, min_length=1)]
-
 
 class ResponseModel(BaseModel):
     """Response should have specific fields"""
@@ -39,8 +48,8 @@ climate_dict = {
     "5": "Claims questioning climate science validity - Climate science is uncertain, unsound, unreliable, or biased.",
     "6": "Claims attacking climate scientists and activists - Climate scientists and proponents of climate action are alarmist, biased, wrong, hypocritical, corrupt, and/or politically motivated.",
     "7": "Claims promoting fossil fuel necessity - We need fossil fuels for economic growth, prosperity, and to maintain our standard of living.",
-
 }
+
 
 def classify_claim(claim_text: str) -> Optional[ResponseModel] :
     """
@@ -48,9 +57,8 @@ def classify_claim(claim_text: str) -> Optional[ResponseModel] :
     Return the response as JSON with a specific schema.
     """
     try:
-        print("claim_text : ", claim_text)
         payload = PayloadModel(user_claim=claim_text)
-        print("payload : ", payload.model_dump())
+        logger.info(f"classify_claim | payload : {payload.model_dump()}")
 
         #response = requests.post(API_URL, json=payload.model_dump())
         #response.raise_for_status()
@@ -63,7 +71,10 @@ def classify_claim(claim_text: str) -> Optional[ResponseModel] :
             claim_category='6',
             )
         response = mock_response
-        print("response : ", response)
+        logger.info(f"classify_claim | response.model_name : {response.model_name}")
+        logger.info(f"classify_claim | response.model_description : {response.model_description}")
+        logger.info(f"classify_claim | response.user_claim : {response.user_claim}")
+        logger.info(f"classify_claim | response.claim_category : {response.claim_category}")
         return response
     
     except requests.exceptions.RequestException as e:
@@ -77,7 +88,8 @@ def classify_claim(claim_text: str) -> Optional[ResponseModel] :
 
 def main():
     """Classify single claims into climate disinformation categories"""
-    
+    logger.info("App is starting")
+
     st.set_page_config(
         page_title="Climate Disinformation Debunker", 
         page_icon="🌍"
@@ -91,6 +103,7 @@ def main():
     )
 
     if st.button("Check for disinformation"):
+        logger.info(f"event : st.button")
         if not claim.strip():
             st.warning("Please enter a claim to classify.")
         else:
@@ -98,15 +111,14 @@ def main():
                 result = classify_claim(claim.strip())
 
             if result:
-                st.markdown(f'_"{result.user_claim}"_')
-                if result.claim_category is '0':
+                if result.claim_category == '0':
                     st.markdown(f"This claim is not related to climate or not considered to be disinformation")
                 else:
                     st.markdown(f"**This claim is considered climate disinformation.**")
-                    st.markdown(f"**Category:** {result.claim_category}")
-                    st.markdown(f"{climate_dict[result.claim_category]}")
+                    st.markdown(f"**Category:** {climate_dict[result.claim_category]}")
                 st.markdown(f"**Classified by:** {result.model_name} ({result.model_description})")
             else:
+                logger.error("classification failed")
                 st.error("Unable to retrieve classification. Please try again later.")
 
 
