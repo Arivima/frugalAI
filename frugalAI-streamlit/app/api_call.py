@@ -9,31 +9,36 @@ from app.config import API_URL
 
 logger = logging.getLogger(__name__)
 
-def classify_claim(claim_text: str) -> Optional[ClassifyResponse] :
-    try:
-        payload = ClassifyRequest(user_claim=claim_text)
-        logger.info(f"classify_claim | payload : {payload.model_dump()}")
 
-        response = requests.post(API_URL, json=payload.model_dump())
-        response.raise_for_status()
+@st.cache_data(show_spinner=False)
+def classify_claim_cached(claim_text: str) -> Optional[ClassifyResponse]:
+    def classify_claim(claim_text: str) -> Optional[ClassifyResponse] :
+        try:
+            payload = ClassifyRequest(user_claim=claim_text)
+            logger.info(f"classify_claim | payload : {payload.model_dump()}")
 
-        data = response.json()
-        logger.info(f"classify_claim | raw response JSON: {data}")
+            response = requests.post(API_URL, json=payload.model_dump())
+            response.raise_for_status()
 
-        validated_data = ClassifyResponse(**data)
-        logger.info(f"classify_claim | validated response: {validated_data}")
+            data = response.json()
+            logger.info(f"classify_claim | raw response JSON: {data}")
 
-        logger.info(f"response: {response.json}")
+            validated_data = ClassifyResponse(**data)
+            logger.info(f"classify_claim | validated response: {validated_data}")
 
-        logger.info(f"classify_claim | response.model_name : {validated_data.model_name}")
-        logger.info(f"classify_claim | response.user_claim : {validated_data.user_claim}")
-        logger.info(f"classify_claim | response.category : {validated_data.category}")
-        logger.info(f"classify_claim | response.explanation : {validated_data.explanation}")
-        return validated_data
-    
-    except requests.exceptions.RequestException as e:
-        st.error(f"API request failed: {e}")
-        return None
-    except ValidationError as e:
-        st.error(f"Invalid claim input:\n{e}")
-        return None
+            logger.info(f"response: {response.json}")
+
+            logger.info(f"classify_claim | response.model_name : {validated_data.model_name}")
+            logger.info(f"classify_claim | response.user_claim : {validated_data.user_claim}")
+            logger.info(f"classify_claim | response.category : {validated_data.category}")
+            logger.info(f"classify_claim | response.explanation : {validated_data.explanation}")
+            return validated_data
+        
+        except requests.exceptions.RequestException as e:
+            st.error(f"API request failed: {e}")
+            return None
+        except ValidationError as e:
+            st.error(f"Invalid format:\n{e}")
+            return None
+        
+    return classify_claim(claim_text)
