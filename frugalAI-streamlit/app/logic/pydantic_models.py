@@ -12,3 +12,10 @@ class ClassifyResponse(BaseModel):
     user_claim: str
     category: str
     explanation : str
+
+class FeedbackRequest(BaseModel):
+    user_claim: str = Field(..., strip_whitespace=True, min_length=1)
+    predicted_category: str
+    correct_category: str
+
+
