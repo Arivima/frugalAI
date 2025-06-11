@@ -35,12 +35,9 @@ class SessionState:
     @staticmethod
     def reset_results():
         st.session_state.current_results = None
-        
-
 
 
 def process_claim(claim):
-
     with st.spinner("Analyzing claim..."):
         results = classify_claim_cached(claim)
     
@@ -60,18 +57,22 @@ def display_results():
     results = st.session_state.current_results
     if results.category == '0':
         st.success("This claim is not considered climate disinformation")
-        return
+
+        with st.container():
+            st.markdown(f"**Why it was categorized as such:**")
+            st.markdown(f"{results.explanation}")
     
-    st.warning("**This claim is considered to be climate disinformation**")
-    
-    category_label = Context.CATEGORY_LABEL[results.category]
-    category_description = Context.CATEGORY_DESCRIPTION[results.category]
-    
-    with st.container():
-        st.markdown(f"**Category:** {results.category} - {category_label}")
-        st.markdown(f"**About this category:** {category_description}")
-        st.markdown(f"**Why it was categorized as such:**")
-        st.markdown(f"{results.explanation}")
+    else :
+        st.warning("**This claim is considered to be climate disinformation**")
+        
+        category_label = Context.CATEGORY_LABEL[results.category]
+        category_description = Context.CATEGORY_DESCRIPTION[results.category]
+        
+        with st.container():
+            st.markdown(f"**Category:** {results.category} - {category_label}")
+            st.markdown(f"**About this category:** {category_description}")
+            st.markdown(f"**Why it was categorized as such:**")
+            st.markdown(f"{results.explanation}")
 
 
 def handle_feedback_buttons():
@@ -112,16 +113,14 @@ def feedback_dialog():
             selected_category = key
             break
 
-
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Submit Feedback", type="primary", use_container_width=True):
             send_feedback(
                 claim=st.session_state.current_claim, 
-                predicted_category=st.session_state.results.category,
+                predicted_category=st.session_state.current_results.category,
                 correct_category=selected_category
                 )
-            logger.info(f"Feedback received, category: {selected_category} for claim: {st.session_state.current_claim[:50]}")
             st.success("Thank you for your feedback!")
             st.session_state.show_dialog = False
             st.rerun()
