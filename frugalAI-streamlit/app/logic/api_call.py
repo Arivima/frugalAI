@@ -48,16 +48,23 @@ def classify_claim_cached(claim_text: str) -> Optional[ClassifyResponse]:
 
 
 
-def send_feedback(claim: str, predicted_category : int, correct_category : int):
+def send_feedback(
+        claim: str, 
+        predicted_category : int, 
+        assistant_explanation : str, 
+        correct_category : int
+        ):
     try:
         payload = FeedbackRequest(
             user_claim=claim, 
             predicted_category=predicted_category,
+            assistant_explanation=assistant_explanation,
             correct_category=correct_category
             )
-        logger.info(f"send_feedback | user_claim         : {payload.model_dump()['user_claim'][:50]}")
-        logger.info(f"send_feedback | predicted_category : {payload.model_dump()['predicted_category']}")
-        logger.info(f"send_feedback | correct_category   : {payload.model_dump()['correct_category']}")
+        logger.info(f"send_feedback | user_claim            : {payload.model_dump()['user_claim'][:50]}")
+        logger.info(f"send_feedback | predicted_category    : {payload.model_dump()['predicted_category']}")
+        logger.info(f"send_feedback | assistant_explanation : {payload.model_dump()['assistant_explanation'][:50]}")
+        logger.info(f"send_feedback | correct_category      : {payload.model_dump()['correct_category']}")
 
         endpoint = Context.API_URL + 'feedback'
         logger.info(endpoint)

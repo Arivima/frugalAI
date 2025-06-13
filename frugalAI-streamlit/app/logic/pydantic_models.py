@@ -16,6 +16,7 @@ class ClassifyResponse(BaseModel):
 class FeedbackRequest(BaseModel):
     user_claim: str = Field(..., strip_whitespace=True, min_length=1)
     predicted_category: int = Field(..., ge=0, le=7)
+    assistant_explanation: str = Field(..., strip_whitespace=True, min_length=1)
     correct_category: int = Field(..., ge=0, le=7)
 
 

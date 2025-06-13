@@ -36,6 +36,12 @@ class SessionState:
     def reset_results():
         st.session_state.current_results = None
 
+    @staticmethod
+    def debug():
+        st.write("---")
+        for k, v in st.session_state.items():
+            st.write(k, '|', v)
+
 
 def process_claim(claim):
     with st.spinner("Analyzing claim..."):
@@ -119,8 +125,10 @@ def feedback_dialog():
             send_feedback(
                 claim=st.session_state.current_claim, 
                 predicted_category=st.session_state.current_results.category,
+                assistant_explanation=st.session_state.current_results.explanation,
                 correct_category=selected_category
                 )
+        
             st.success("Thank you for your feedback!")
             st.session_state.show_dialog = False
             st.rerun()
@@ -172,6 +180,9 @@ def app():
     
     if st.session_state.show_dialog and st.session_state.current_claim:
         feedback_dialog()
+
+
+    SessionState.debug()
 
 
 if __name__ == "__main__":
