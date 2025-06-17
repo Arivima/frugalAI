@@ -20,4 +20,3 @@ class FeedbackRequest(BaseModel):
     correct_category: int = Field(..., ge=0, le=7)
 
 
-

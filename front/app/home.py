@@ -1,7 +1,7 @@
 
 import streamlit as st
 import logging
-from app.config import setup_logging
+from shared.config import setup_logging
 
 setup_logging()
 

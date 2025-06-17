@@ -3,7 +3,7 @@ import logging
 import re
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
-from app.config import setup_logging, Config
+from shared.config import setup_logging, Config
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ class LLMWrapper:
     def __init__(self):
         try:
             logger.info(f"LLMWrapper.__init__ : Loading model and tokenizer")
-            adapter_dir = Config.DESTINATION_DIRECTORY + '/' + Config.ADAPTER_NAME
+            adapter_dir = Config.LOCAL_DIRECTORY + '/' + Config.ADAPTER_NAME
             self.model_name = Config.MODEL_NAME
             logger.info(f"Base model: {self.model_name}")
             logger.info(f"Adapter directory: {adapter_dir}")

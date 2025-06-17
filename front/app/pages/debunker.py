@@ -1,7 +1,7 @@
 import streamlit as st
 import logging
 from app.logic.api_call import classify_claim_cached, send_feedback
-from app.config import Context
+from app.context import Context
 
 
 logger = logging.getLogger(__name__)

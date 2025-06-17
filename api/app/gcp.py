@@ -1,6 +1,6 @@
 import logging
 from google.cloud import storage
-from app.config import Config, setup_logging
+from shared.config import Config, setup_logging
 from google.cloud.storage import transfer_manager
 from google.cloud.exceptions import GoogleCloudError
 from google.cloud import bigquery
@@ -38,7 +38,7 @@ def load_model_gcs():
 
         blob_names = [blob.name for blob in blobs]
 
-        destination_directory = Config.DESTINATION_DIRECTORY
+        destination_directory = Config.LOCAL_DIRECTORY
         results = transfer_manager.download_many_to_path(
             bucket, blob_names, destination_directory=destination_directory
         )

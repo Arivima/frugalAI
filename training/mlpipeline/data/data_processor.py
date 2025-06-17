@@ -7,7 +7,7 @@ import logging
 from sklearn.model_selection import train_test_split
 from datasets import Dataset, ClassLabel
 from mlpipeline.gcp import GCP
-from mlpipeline.config import setup_logging, Config
+from shared.config import setup_logging, Config
 
 
 logger = logging.getLogger(__name__)

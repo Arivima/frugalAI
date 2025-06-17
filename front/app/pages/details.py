@@ -1,6 +1,6 @@
 import streamlit as st
 import logging
-from app.config import Context
+from app.context import Context
 
 logger = logging.getLogger(__name__)
 

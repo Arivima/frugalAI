@@ -8,7 +8,7 @@ from peft import PeftModel, prepare_model_for_kbit_training
 from datasets import Dataset
 from trl import SFTTrainer
 
-from mlpipeline.config import setup_logging, Config
+from shared.config import setup_logging, Config
 from mlpipeline.gcp import GCP
 from mlpipeline.model.prompt import PromptTemplate
 
@@ -27,15 +27,15 @@ class LLMWrapper:
         ):
         
         try:
-            logger.info(f"Loading model and tokenizer")
+            logger.info("Loading model and tokenizer")
 
             # loading the adapter from gcs if not already done
             self.local_directory = local_directory
             adapter_dir = local_directory + '/' + adapter_name
             if os.path.exists(adapter_dir):
-                logger.info(f"Loading adapter from local cache")
+                logger.info("Loading adapter from local cache")
             else:
-                logger.info(f"Loading adapter from gcs")
+                logger.info("Loading adapter from gcs")
                 GCP.load_adapter_gcs(
                     project_id = project_id,
                     bucket_name = bucket_name,

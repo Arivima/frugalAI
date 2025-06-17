@@ -13,6 +13,10 @@ dependencies = [
     "pandas>=2.3.0",
     "peft>=0.15.2",
     "scikit-learn>=1.6.1",
+    "shared",
     "torch>=2.7.1",
     "trl>=0.18.1",
 ]
+
+[tool.uv.sources]
+shared = { path = "../shared", editable = true }

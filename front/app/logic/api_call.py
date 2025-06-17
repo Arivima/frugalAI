@@ -4,12 +4,13 @@ import logging
 import streamlit as st
 from pydantic import ValidationError
 from typing import Optional
-from app.logic.pydantic_models import (
+from shared.pydantic_models import (
     ClassifyRequest, 
     ClassifyResponse,
     FeedbackRequest
     )
-from app.config import Context
+
+from app.context import Context
 
 logger = logging.getLogger(__name__)
 

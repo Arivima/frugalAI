@@ -5,37 +5,41 @@ from fastapi import (
     Request, 
     Response,
     HTTPException, 
-    status
+    status,
     )
-from app.gcp import send_feedback_bq
+from shared.pydantic_models import (
+    ClassifyRequest, 
+    ClassifyResponse,
+    FeedbackRequest
+    )
+from app.gcp import send_feedback_bq, load_model_gcs
+from app.model import LLMWrapper
+
+
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-class ClassifyRequest(BaseModel):
-    user_claim: str = Field(..., strip_whitespace=True, min_length=1)
-
-class ClassifyResponse(BaseModel):
-    model_name: str
-    user_claim: str
-    category: str
-    explanation : str
-
-class FeedbackRequest(BaseModel):
-    user_claim: str = Field(..., strip_whitespace=True, min_length=1)
-    predicted_category: int = Field(..., ge=0, le=7)
-    assistant_explanation: str = Field(..., strip_whitespace=True, min_length=1)
-    correct_category: int = Field(..., ge=0, le=7)
-
 
 @router.get("/")
-async def root():
-    return {"status": "ok"}
+async def root(request: Request):
+    model_loaded = hasattr(request.app.state, "model") and getattr(request.app.state, "model") is not None
+    return {"status": "ok", "model_loaded": model_loaded}
 
+@router.get("/reload_model")
+async def reload(request: Request):
+    try:
+        logger.info("New reload request")
+        load_model_gcs()
+        request.app.state.model = LLMWrapper()
+        return {"reload": "ok"}
+    except Exception as e:
+        logger.exception(f"Error reloading model: {e}")
+        raise HTTPException(status_code=500, detail="Error reloading model")
 
-@router.post("/classify", response_model=ClassifyResponse)
+@router.post("/classify", response_model=ClassifyResponse, tags=["classification"])
 async def classify(request: Request, body: ClassifyRequest):
 
     logger.info(f"New classification request : {body}")
@@ -62,7 +66,7 @@ async def classify(request: Request, body: ClassifyRequest):
     return ClassifyResponse(**response_data)
 
 
-@router.post("/feedback", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/feedback", status_code=status.HTTP_204_NO_CONTENT, tags=["feedback"])
 async def submit_feedback(request: Request, body: FeedbackRequest):
 
     logger.info(f"New feedback request : {body}")

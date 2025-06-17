@@ -1,5 +1,5 @@
 
-from mlpipeline.config import Config, setup_logging
+from shared.config import Config, setup_logging
 from mlpipeline.data.data_processor import DataProcessor
 from mlpipeline.model.model import LLMWrapper
 import logging

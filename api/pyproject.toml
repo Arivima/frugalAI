@@ -12,7 +12,12 @@ dependencies = [
     "numpy>=2.0.2",
     "packaging>=25.0",
     "peft>=0.15.2",
+    "pydantic>=2.11.7",
     "requests>=2.32.3",
+    "shared",
     "torch>=2.7.1",
     "transformers>=4.52.4",
 ]
+
+[tool.uv.sources]
+shared = { path = "../shared", editable = true }

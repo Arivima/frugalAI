@@ -1,6 +1,6 @@
 import logging
 from google.cloud import storage
-from mlpipeline.config import Config, setup_logging
+from shared.config import Config, setup_logging
 from google.cloud.storage import transfer_manager
 from google.cloud.exceptions import GoogleCloudError
 from google.cloud import bigquery

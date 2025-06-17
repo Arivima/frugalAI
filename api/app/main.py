@@ -1,8 +1,10 @@
 import logging
+
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+
+from shared.config import setup_logging
 from app.routes import router
-from app.config import setup_logging
 from app.gcp import load_model_gcs
 from app.model import LLMWrapper
 
