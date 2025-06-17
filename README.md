@@ -1,6 +1,6 @@
-# frugalAI-ml-pipeline
+# frugalAI
 
-
+## ml pipeline
 ### Requirements
 mlpipeline doit etre run sur un GPU T4
 
