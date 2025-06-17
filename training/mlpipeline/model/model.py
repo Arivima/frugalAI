@@ -283,30 +283,34 @@ class LLMWrapper:
 
 if __name__ == "__main__":
 
-    setup_logging()
+    try:
+        setup_logging()
 
-    llm = LLMWrapper(
-        local_directory = Config.LOCAL_DIRECTORY,
-        adapter_name = Config.ADAPTER_NAME,
-        model_name = Config.MODEL_NAME,
-        project_id = Config.GCP_PROJECT_ID,
-        bucket_name = Config.GCS_BUCKET_NAME,
-    )
-    # llm.generate()
+        llm = LLMWrapper(
+            local_directory = Config.LOCAL_DIRECTORY,
+            adapter_name = Config.ADAPTER_NAME,
+            model_name = Config.MODEL_NAME,
+            project_id = Config.GCP_PROJECT_ID,
+            bucket_name = Config.GCS_BUCKET_NAME,
+        )
+        # llm.generate()
 
-    from mlpipeline.data.data_processor import DataProcessor
+        from mlpipeline.data.data_processor import DataProcessor
 
-    data = DataProcessor(
-        project_id = Config.GCP_PROJECT_ID,
-        dataset_id = Config.BQ_DATASET_ID,
-        table_id = Config.BQ_TABLE_ID,
-        start_date = None,
-    )
-    data.create_splits()
-    print(data.df.shape, data.ds.shape, data.train_ds.shape, data.val_ds.shape, data.test_ds.shape)
-    print(data.df.columns)
-    print(data.train_ds[0])
+        data = DataProcessor(
+            project_id = Config.GCP_PROJECT_ID,
+            dataset_id = Config.BQ_DATASET_ID,
+            table_id = Config.BQ_TABLE_ID,
+            start_date = None,
+        )
+        data.create_splits()
+        print(data.df.shape, data.ds.shape, data.train_ds.shape, data.test_ds.shape)
+        print(data.df.columns)
+        print(data.train_ds[0])
 
-    llm.train(
-        data_train=data.train_ds
-    )
+        # llm.train(
+        #     data_train=data.train_ds
+        # )
+
+    except Exception as e:
+        logger.error(f'Error in main model.py{e}')

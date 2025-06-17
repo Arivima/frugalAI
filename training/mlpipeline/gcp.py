@@ -54,7 +54,7 @@ class GCP():
             blob_names = [blob.name for blob in blobs]
 
             results = transfer_manager.download_many_to_path(
-                bucket, blob_names, local_directory=local_directory
+                bucket, blob_names, destination_directory=local_directory
             )
 
             for name, result in zip(blob_names, results):
