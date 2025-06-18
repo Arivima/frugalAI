@@ -20,7 +20,7 @@ from fastapi import (
     status,
 )
 
-from app.model import LLMWrapper
+from shared.model.model import LLMWrapper
 from shared.config import Config
 from shared.gcp import Gcp
 from shared.pydantic_models import ClassifyRequest, ClassifyResponse, FeedbackRequest
@@ -51,7 +51,13 @@ async def reload(request: Request):
             adapter_name=Config.ADAPTER_NAME,
             local_directory=Config.LOCAL_DIRECTORY,
         )
-        request.app.state.model = LLMWrapper()
+        request.app.state.model = LLMWrapper(
+            local_directory=Config.LOCAL_DIRECTORY,
+            adapter_name=Config.ADAPTER_NAME,
+            model_name=Config.MODEL_NAME,
+            project_id=Config.GCP_PROJECT_ID,
+            bucket_name=Config.GCS_BUCKET_NAME,
+        )
         return {"reload": "ok"}
     except Exception as e:
         logger.exception("Error reloading model: %s", e)

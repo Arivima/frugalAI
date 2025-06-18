@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.model import LLMWrapper
+from shared.model.model import LLMWrapper
 from app.routes import router
 from shared.config import Config, setup_logging
 from shared.gcp import Gcp
@@ -28,7 +28,13 @@ async def lifespan(app: FastAPI):
             adapter_name=Config.ADAPTER_NAME,
             local_directory=Config.LOCAL_DIRECTORY,
         )
-        app.state.model = LLMWrapper()
+        app.state.model = LLMWrapper(
+            local_directory=Config.LOCAL_DIRECTORY,
+            adapter_name=Config.ADAPTER_NAME,
+            model_name=Config.MODEL_NAME,
+            project_id=Config.GCP_PROJECT_ID,
+            bucket_name=Config.GCS_BUCKET_NAME,
+        )
 
     except Exception as e:
         logger.exception(f"{e}")

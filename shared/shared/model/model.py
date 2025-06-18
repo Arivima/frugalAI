@@ -4,7 +4,6 @@ import re
 
 import torch
 from datasets import Dataset
-from mlpipeline.model.prompt import PromptTemplate
 from peft import PeftModel, prepare_model_for_kbit_training
 from transformers import (
     AutoModelForCausalLM,
@@ -14,6 +13,7 @@ from transformers import (
 )
 from trl import SFTTrainer
 
+from shared.model.prompt import PromptTemplate
 from shared.config import Config, setup_logging
 from shared.gcp import Gcp
 
@@ -257,6 +257,7 @@ class LLMWrapper:
 
     def evaluate(
         self,
+        data : Dataset
     ):
         pass
 
