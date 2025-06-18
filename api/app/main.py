@@ -1,15 +1,16 @@
 import logging
-
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
-from shared.config import setup_logging, Config
-from shared.gcp import Gcp
-from app.routes import router
+from fastapi import FastAPI
+
 from app.model import LLMWrapper
+from app.routes import router
+from shared.config import Config, setup_logging
+from shared.gcp import Gcp
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,7 +20,7 @@ async def lifespan(app: FastAPI):
     - Initializes a model into the app state.
     - Clears the model from memory on shutdown.
     """
-    logger.info('Starting API')
+    logger.info("Starting API")
     try:
         Gcp.load_adapter_gcs(
             project_id=Config.GCP_PROJECT_ID,

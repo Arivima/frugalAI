@@ -65,7 +65,7 @@ class Gcp:
 
             blob_names = [
                 blob.name for blob in blobs if blob.name.startswith(f"{adapter_name}/")
-            ]
+            ]``
             results = transfer_manager.download_many_to_path(
                 bucket, blob_names, destination_directory=local_directory
             )

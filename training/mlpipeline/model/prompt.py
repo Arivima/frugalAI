@@ -1,5 +1,5 @@
-
 import textwrap
+
 
 class PromptTemplate:
     SYSTEM_MSG = textwrap.dedent("""\
@@ -23,12 +23,12 @@ class PromptTemplate:
     "{quote}"
     """).strip()
 
-    GENERATION_TEMPLATE =textwrap.dedent("""\
+    GENERATION_TEMPLATE = textwrap.dedent("""\
     ### Answer:
     category: 
     """).strip()
 
-    ASSISTANT_TEMPLATE =textwrap.dedent("""\
+    ASSISTANT_TEMPLATE = textwrap.dedent("""\
     ### Answer:
     category: {label}
 

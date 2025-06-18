@@ -1,39 +1,43 @@
-import torch
 import logging
 import re
-from transformers import AutoModelForCausalLM, AutoTokenizer
+
+import torch
 from peft import PeftModel
-from shared.config import setup_logging, Config
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from shared.config import Config, setup_logging
 
 logger = logging.getLogger(__name__)
 
 
 class LLMWrapper:
-
     def __init__(self):
         try:
-            logger.info(f"LLMWrapper.__init__ : Loading model and tokenizer")
-            adapter_dir = Config.LOCAL_DIRECTORY + '/' + Config.ADAPTER_NAME
+            logger.info("LLMWrapper.__init__ : Loading model and tokenizer")
+            adapter_dir = Config.LOCAL_DIRECTORY + "/" + Config.ADAPTER_NAME
             self.model_name = Config.MODEL_NAME
             logger.info(f"Base model: {self.model_name}")
             logger.info(f"Adapter directory: {adapter_dir}")
 
             if torch.cuda.is_available():
                 self.device = "cuda"
-            elif getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+            elif (
+                getattr(torch.backends, "mps", None) is not None
+                and torch.backends.mps.is_available()
+            ):
                 self.device = "mps"
             else:
                 self.device = "cpu"
-            torch_dtype = torch.float16 if self.device=="mps" else torch.float32
-            device_map="auto" if self.device!="cpu" else None
-            logger.info(f"Using device={self.device}, dtype={torch_dtype}, device_map={device_map}")
+            torch_dtype = torch.float16 if self.device == "mps" else torch.float32
+            device_map = "auto" if self.device != "cpu" else None
+            logger.info(
+                f"Using device={self.device}, dtype={torch_dtype}, device_map={device_map}"
+            )
 
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
             self.base_model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                torch_dtype=torch_dtype,
-                device_map=device_map
+                self.model_name, torch_dtype=torch_dtype, device_map=device_map
             ).to(self.device)
 
             self.model = PeftModel.from_pretrained(
@@ -48,13 +52,11 @@ class LLMWrapper:
         except Exception as e:
             logger.exception(f"❌ Error loading model: {e}.")
 
-
     def generate(
         self,
         quote: str = "Who are you?",
         max_new_tokens: int = 2048,
     ):
-        
         assert self.model is not None
 
         logger.info(f"LLMWrapper.generate : {quote}")
@@ -103,20 +105,19 @@ class LLMWrapper:
 
         output_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
-        answer = output_text.split('assistant')[1]
+        answer = output_text.split("assistant")[1]
 
         m = re.search(r"\d", answer)
         if m:
             category = m.group(0)
             explanation = answer.split(category)[1].strip()
         else:
-            category = ''
+            category = ""
             explanation = answer
         logger.info(f"category: {category}")
         logger.info(f"explanation: {explanation}")
 
         return category, explanation
-
 
     def clear(self):
         try:

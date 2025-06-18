@@ -6,9 +6,9 @@
 import logging
 
 from datasets import ClassLabel, Dataset
-from shared.gcp import Gcp
 
 from shared.config import Config, setup_logging
+from shared.gcp import Gcp
 
 logger = logging.getLogger(__name__)
 

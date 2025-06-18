@@ -4,7 +4,6 @@ import re
 
 import torch
 from datasets import Dataset
-from shared.gcp import Gcp
 from mlpipeline.model.prompt import PromptTemplate
 from peft import PeftModel, prepare_model_for_kbit_training
 from transformers import (
@@ -16,6 +15,7 @@ from transformers import (
 from trl import SFTTrainer
 
 from shared.config import Config, setup_logging
+from shared.gcp import Gcp
 
 logger = logging.getLogger(__name__)
 
