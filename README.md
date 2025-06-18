@@ -5,6 +5,7 @@
 mlpipeline doit etre run sur un GPU T4
 
 ### TODO
+- testing
 - compute engine gpu 
 - resume_training
     - include CO2eq
@@ -15,6 +16,8 @@ mlpipeline doit etre run sur un GPU T4
 - langfuse
 - Deploy + CI/CD
 - optimization pruna
+- logging
+- monitoring
 
 bonus
 - train from scratch
