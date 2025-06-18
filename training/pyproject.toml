@@ -12,6 +12,7 @@ dependencies = [
     "google-cloud-storage>=3.1.0",
     "pandas>=2.3.0",
     "peft>=0.15.2",
+    "pydantic>=2.11.7",
     "scikit-learn>=1.6.1",
     "shared",
     "torch>=2.7.1",

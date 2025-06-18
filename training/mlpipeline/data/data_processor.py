@@ -4,19 +4,21 @@
 # - tokenization
 
 import logging
-from sklearn.model_selection import train_test_split
-from datasets import Dataset, ClassLabel
-from mlpipeline.gcp import GCP
-from shared.config import setup_logging, Config
 
+from datasets import ClassLabel, Dataset
+from mlpipeline.gcp import Gcp
+
+from shared.config import Config, setup_logging
 
 logger = logging.getLogger(__name__)
 
+
 def mock_df():
-    import pandas as pd
-    import numpy as np
-    from datetime import datetime, timedelta
     import random
+    from datetime import datetime, timedelta
+
+    import numpy as np
+    import pandas as pd
 
     # Set random seed for reproducibility
     np.random.seed(42)
@@ -36,7 +38,7 @@ def mock_df():
             "Climate change is a conspiracy to control the economy",
             "Ice ages prove climate always changes without human influence",
             "Volcanoes produce more CO2 than humans ever could",
-            "Climate models are completely unreliable and always wrong"
+            "Climate models are completely unreliable and always wrong",
         ],
         1: [  # Category 1: Extreme weather denial
             "Hurricanes have always existed, nothing to do with climate",
@@ -50,7 +52,7 @@ def mock_df():
             "Extreme weather events are actually decreasing over time",
             "Storm intensity hasn't changed in the past century",
             "Glaciers have been melting since the last ice age",
-            "Ocean acidification is a myth propagated by environmentalists"
+            "Ocean acidification is a myth propagated by environmentalists",
         ],
         2: [  # Category 2: Climate solutions denial
             "Renewable energy is too expensive and unreliable",
@@ -64,7 +66,7 @@ def mock_df():
             "Switching to renewables will make the power grid unstable",
             "Climate action will make energy unaffordable for the poor",
             "Biofuels cause more environmental damage than fossil fuels",
-            "Energy efficiency measures don't actually save energy"
+            "Energy efficiency measures don't actually save energy",
         ],
         3: [  # Category 3: Climate impacts minimization
             "Climate change will be beneficial for agriculture",
@@ -78,7 +80,7 @@ def mock_df():
             "Warmer climates historically supported larger populations",
             "Climate impacts are exaggerated by alarmist scientists",
             "Migration due to climate change is a minor issue",
-            "Climate change will make northern regions more habitable"
+            "Climate change will make northern regions more habitable",
         ],
         4: [  # Category 4: Anti-climate policy
             "Climate policies are government overreach and tyranny",
@@ -92,7 +94,7 @@ def mock_df():
             "Climate policies are designed to redistribute wealth globally",
             "Environmental protection hurts economic development",
             "Climate action will disproportionately harm rural communities",
-            "Emissions standards are impossible for small businesses to meet"
+            "Emissions standards are impossible for small businesses to meet",
         ],
         5: [  # Category 5: Pro-fossil fuel messaging
             "Fossil fuels lifted billions out of poverty",
@@ -106,7 +108,7 @@ def mock_df():
             "Fossil fuels are essential for modern civilization",
             "Energy security requires domestic fossil fuel production",
             "Petrochemicals are essential for medicines and modern life",
-            "Fossil fuel infrastructure represents trillions in investments"
+            "Fossil fuel infrastructure represents trillions in investments",
         ],
         6: [  # Category 6: Climate science attack
             "Climate models have consistently been wrong about predictions",
@@ -120,7 +122,7 @@ def mock_df():
             "Satellite data shows no significant warming trend",
             "Climate scientists suppress dissenting research",
             "IPCC reports are politically motivated, not scientific",
-            "Temperature proxies are unreliable for historical climate"
+            "Temperature proxies are unreliable for historical climate",
         ],
         7: [  # Category 7: Delay and inaction
             "We need more research before taking drastic action",
@@ -134,8 +136,8 @@ def mock_df():
             "Climate policies need to be gradual to avoid economic shock",
             "Innovation will make current climate concerns obsolete",
             "Climate action will hurt the poor more than help them",
-            "We have decades to figure out climate solutions"
-        ]
+            "We have decades to figure out climate solutions",
+        ],
     }
 
     # Generate mock data
@@ -151,24 +153,26 @@ def mock_df():
                 hours=random.randint(0, 23),
                 minutes=random.randint(0, 59),
                 seconds=random.randint(0, 59),
-                microseconds=random.randint(0, 999999)
+                microseconds=random.randint(0, 999999),
             )
-            
+
             # Generate predictions (0-7) with some realistic distribution
             label_pred = random.choices(range(8), weights=[1, 1, 1, 2, 1, 1, 1, 1])[0]
-            
-            data.append({
-                'text': text,
-                'label_pred': label_pred,
-                'label_true': category,
-                'explanation': 'blank for test',
-                'created_at': (base_time - time_offset).isoformat() + '+00:00'
-            })
+
+            data.append(
+                {
+                    "text": text,
+                    "label_pred": label_pred,
+                    "label_true": category,
+                    "explanation": "blank for test",
+                    "created_at": (base_time - time_offset).isoformat() + "+00:00",
+                }
+            )
 
     # Create DataFrame and shuffle
     df = pd.DataFrame(data)
     df = df.sample(frac=1).reset_index(drop=True)
-    df['created_at'] = pd.to_datetime(df['created_at'])
+    df["created_at"] = pd.to_datetime(df["created_at"])
 
     return df
 
@@ -176,18 +180,18 @@ def mock_df():
 # USE SCHEMA VALIDATION
 class DataProcessor:
     def __init__(
-            self,
-            project_id:str,
-            dataset_id:str,
-            table_id:str,
-            start_date:str,
-            ):
-        logger.info('Loading training dataset from bq')
-        self.df = GCP.load_data_bq(
-            project_id = project_id,
-            dataset_id = dataset_id,
-            table_id = table_id,
-            start_date = start_date,
+        self,
+        project_id: str,
+        dataset_id: str,
+        table_id: str,
+        start_date: str,
+    ):
+        logger.info("Loading training dataset from bq")
+        self.df = Gcp.load_data_bq(
+            project_id=project_id,
+            dataset_id=dataset_id,
+            table_id=table_id,
+            start_date=start_date,
         )
         self.df = mock_df()
         self.ds = Dataset.from_pandas(self.df)
@@ -204,9 +208,7 @@ class DataProcessor:
                 self.ds = self.ds.cast_column("label_true", class_label)
 
             split1 = self.ds.train_test_split(
-                test_size=test_size,
-                seed=0,
-                stratify_by_column="label_true"
+                test_size=test_size, seed=0, stratify_by_column="label_true"
             )
 
             self.train_ds = split1["train"]
@@ -219,17 +221,14 @@ class DataProcessor:
             raise
 
 
-
-
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     setup_logging()
 
     data = DataProcessor(
-        project_id = Config.GCP_PROJECT_ID,
-        dataset_id = Config.BQ_DATASET_ID,
-        table_id = Config.BQ_TABLE_ID,
-        start_date = None,
+        project_id=Config.GCP_PROJECT_ID,
+        dataset_id=Config.BQ_DATASET_ID,
+        table_id=Config.BQ_TABLE_ID,
+        start_date=None,
     )
     data.create_splits()
     print(data.df.shape, data.ds.shape, data.train_df.shape, data.test_df.shape)
