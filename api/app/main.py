@@ -3,9 +3,9 @@ import logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
-from shared.config import setup_logging
+from shared.config import setup_logging, Config
+from shared.gcp import Gcp
 from app.routes import router
-from app.gcp import load_model_gcs
 from app.model import LLMWrapper
 
 setup_logging()
@@ -13,9 +13,20 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Application lifespan context manager for FastAPI - triggered at startup and shutdown.
+    - Downloads model adapter files from Google Cloud Storage.
+    - Initializes a model into the app state.
+    - Clears the model from memory on shutdown.
+    """
     logger.info('Starting API')
     try:
-        load_model_gcs()
+        Gcp.load_adapter_gcs(
+            project_id=Config.GCP_PROJECT_ID,
+            bucket_name=Config.GCS_BUCKET_NAME,
+            adapter_name=Config.ADAPTER_NAME,
+            local_directory=Config.LOCAL_DIRECTORY,
+        )
         app.state.model = LLMWrapper()
 
     except Exception as e:

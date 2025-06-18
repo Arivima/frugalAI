@@ -1,5 +1,4 @@
 # TODO
-# doctstring
 # add tests
 
 import logging

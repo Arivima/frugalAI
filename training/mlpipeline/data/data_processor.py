@@ -6,7 +6,7 @@
 import logging
 
 from datasets import ClassLabel, Dataset
-from mlpipeline.gcp import Gcp
+from shared.gcp import Gcp
 
 from shared.config import Config, setup_logging
 
@@ -231,4 +231,4 @@ if __name__ == "__main__":
         start_date=None,
     )
     data.create_splits()
-    print(data.df.shape, data.ds.shape, data.train_df.shape, data.test_df.shape)
+    print(data.df.shape, data.ds.shape, data.train_ds.shape, data.test_ds.shape)

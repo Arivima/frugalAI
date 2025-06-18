@@ -4,7 +4,7 @@ import re
 
 import torch
 from datasets import Dataset
-from mlpipeline.gcp import Gcp
+from shared.gcp import Gcp
 from mlpipeline.model.prompt import PromptTemplate
 from peft import PeftModel, prepare_model_for_kbit_training
 from transformers import (
