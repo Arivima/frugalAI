@@ -1,9 +1,7 @@
 from google.cloud import bigquery, storage
 from google.cloud.exceptions import NotFound
-from datetime import datetime
 from mlpipeline.config import Config, setup_logging
 import logging
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +58,7 @@ def ensure_gcs_bucket():
         bucket = storage_client.bucket(Config.GCS_BUCKET_NAME)
         storage_client.create_bucket(bucket, location=Config.GCP_REGION)
         print(f"Bucket {Config.GCS_BUCKET_NAME} created.")
-        print(f"Please load production model to GCS.")
+        print("Please load production model to GCS.")
 
 
 

@@ -1,5 +1,5 @@
 import logging
-from app.config import Config, setup_logging
+from app.config import Config
 
 logger = logging.getLogger('__name__')
 
