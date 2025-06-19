@@ -17,7 +17,7 @@ def classify_claim_cached(claim_text: str) -> Optional[ClassifyResponse]:
         try:
             payload = ClassifyRequest(user_claim=claim_text)
             logger.info(
-                f"classify_claim | user_claim : {payload.model_dump()['user_claim'][:50]}"
+                "classify_claim | user_claim : %s", payload.model_dump()['user_claim'][:50]
             )
 
             endpoint = Context.API_URL + "classify"
@@ -27,16 +27,16 @@ def classify_claim_cached(claim_text: str) -> Optional[ClassifyResponse]:
 
             validated_data = ClassifyResponse(**data)
             logger.info(
-                f"classify_claim | response.model_name : {validated_data.model_name}"
+                "classify_claim | response.model_name : %s", validated_data.model_name
             )
             logger.info(
-                f"classify_claim | response.user_claim : {validated_data.user_claim[:50]}"
+                "classify_claim | response.user_claim : %s", validated_data.user_claim[:50]
             )
             logger.info(
-                f"classify_claim | response.category : {validated_data.category}"
+                "classify_claim | response.category : %s", validated_data.category
             )
             logger.info(
-                f"classify_claim | response.explanation : {validated_data.explanation}"
+                "classify_claim | response.explanation : %s", validated_data.explanation
             )
             return validated_data
 
@@ -68,16 +68,16 @@ def send_feedback(
             correct_category=correct_category,
         )
         logger.info(
-            f"send_feedback | user_claim            : {payload.model_dump()['user_claim'][:50]}"
+            "send_feedback | user_claim            : %s", payload.model_dump()['user_claim'][:50]
         )
         logger.info(
-            f"send_feedback | predicted_category    : {payload.model_dump()['predicted_category']}"
+            "send_feedback | predicted_category    : %s", payload.model_dump()['predicted_category']
         )
         logger.info(
-            f"send_feedback | assistant_explanation : {payload.model_dump()['assistant_explanation'][:50]}"
+            "send_feedback | assistant_explanation : %s", payload.model_dump()['assistant_explanation'][:50]
         )
         logger.info(
-            f"send_feedback | correct_category      : {payload.model_dump()['correct_category']}"
+            "send_feedback | correct_category      : %s", payload.model_dump()['correct_category']
         )
 
         endpoint = Context.API_URL + "feedback"
