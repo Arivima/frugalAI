@@ -160,7 +160,7 @@ class LLMWrapper:
         """
         assert self.model is not None
 
-        logger.info(f"LLMWrapper.generate : {quote}")
+        logger.info("LLMWrapper.generate : %s", quote)
 
         formatted_prompt = self._apply_chat_template_generation(quotes=quote)[0]
         inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.device)
@@ -177,8 +177,8 @@ class LLMWrapper:
         else:
             category = ""
             explanation = answer
-        logger.info(f"category: {category}")
-        logger.info(f"explanation: {explanation}")
+        logger.info("category: %s", category)
+        logger.info("explanation: %s", explanation)
 
         return category, explanation
 
@@ -189,7 +189,7 @@ class LLMWrapper:
     ):
         # format training set with chat template
         formatted_ds = self._apply_chat_template_training(ds=data_train)
-        logger.info(f"formatted train_ds sample {formatted_ds['text'][0]}")
+        logger.info("formatted train_ds sample %s", formatted_ds['text'][0])
 
         # tokenize
         tokenized = self.tokenizer(
@@ -237,7 +237,7 @@ class LLMWrapper:
             seed=3407,
             # report_to = "wandb",
         )
-        logger.info(f"training_args {training_args is not None}")
+        logger.info("training_args %s", training_args is not None)
 
         trainer = SFTTrainer(
             model=model,

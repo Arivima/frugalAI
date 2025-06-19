@@ -1,0 +1,24 @@
+# service account
+**/*.json
+
+# env
+**/.env
+**/.env.*
+**/.env.sample
+
+# python
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+
+# doc
+**/README.md
+*.md
+
+# models
+**/models/
+**/outputs/
+
+# for build
+**/Dockerfile
+**/Makefile

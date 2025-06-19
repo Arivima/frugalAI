@@ -2,11 +2,12 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from shared.model.model import LLMWrapper
 from app.routes import router
 from shared.config import Config, setup_logging
 from shared.gcp import Gcp
+from shared.model.model import LLMWrapper
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -48,4 +49,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 setup_logging()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Or list of trusted domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(router)

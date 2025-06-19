@@ -5,6 +5,7 @@
 mlpipeline doit etre run sur un GPU T4
 
 ### TODO
+- python version 3.11
 - testing
 - compute engine gpu 
 - resume_training
