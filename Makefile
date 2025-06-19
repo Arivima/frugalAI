@@ -1,4 +1,5 @@
 .PHONY: streamlit api up
+PATH_SERVICE_ACCOUNT_KEY=frugalai-2025-080c1bf50146.json
 
 # stop all containers
 docker_stop:
@@ -13,16 +14,53 @@ docker_cleanup:
 
 ################################ FRONT ################################
 
+FRONT_DOCKER_IMAGE_NAME=front
+FRONT_DOCKER_CONTAINER_NAME='container-front'
 
+
+# test in local
 front_local:
-	$(MAKE) -C front streamlit-dev
+	cd front && uv run python -m streamlit run app/home.py
+
+# build docker image
+front_docker_build:
+	@echo Building image "$(FRONT_DOCKER_IMAGE_NAME)"
+	@docker build --no-cache -f front/Dockerfile -t $(FRONT_DOCKER_IMAGE_NAME) . 
+
+
+# testing inside the container
+front_docker_run_detached: docker_cleanup front_docker_build
+	@-docker rm -f $(FRONT_DOCKER_CONTAINER_NAME) 2>/dev/null
+	@echo Running container "$(FRONT_DOCKER_CONTAINER_NAME)"
+	@docker run -d \
+		--name $(FRONT_DOCKER_CONTAINER_NAME) \
+		--entrypoint=sh \
+		-p 8502:8502 \
+		$(FRONT_DOCKER_IMAGE_NAME) \
+		-c "tail -f /dev/null"
+	@echo Entering container "$(FRONT_DOCKER_CONTAINER_NAME)"
+	@docker exec -it $(FRONT_DOCKER_CONTAINER_NAME) sh
+
+# WHEN INSIDE THE CONTAINER, TEST
+# tree
+# printenv | grep GCP
+# ls -l /app/service-account.json
+# uv run python -m streamlit run front/app/home.py
+
+
+# run docker container
+front_docker_run: docker_cleanup front_docker_build
+	@echo Running container "$(FRONT_DOCKER_CONTAINER_NAME)"
+	@docker run -d \
+		--name $(FRONT_DOCKER_CONTAINER_NAME) \
+		-p 8502:8502 \
+		$(FRONT_DOCKER_IMAGE_NAME)
 
 
 ################################# API #################################
 
-DOCKER_IMAGE_NAME=api
-DOCKER_CONTAINER_NAME='container-api'
-PATH_SERVICE_ACCOUNT_KEY=frugalai-2025-080c1bf50146.json
+API_DOCKER_IMAGE_NAME=api
+API_DOCKER_CONTAINER_NAME='container-api'
 
 # test in local
 api_local:
@@ -30,27 +68,26 @@ api_local:
 
 # build docker image
 api_docker_build:
-	@echo Building image "$(DOCKER_IMAGE_NAME)"
-	@docker build --no-cache -f api/Dockerfile -t $(DOCKER_IMAGE_NAME) . 
+	@echo Building image "$(API_DOCKER_IMAGE_NAME)"
+	@docker build --no-cache -f api/Dockerfile -t $(API_DOCKER_IMAGE_NAME) . 
 
 # testing inside the container
-api_docker_run_detached: docker_cleanup api_local_docker_build
-	@-docker rm -f $(DOCKER_CONTAINER_NAME) 2>/dev/null
-	@echo Running container "$(DOCKER_CONTAINER_NAME)"
+api_docker_run_detached: docker_cleanup api_docker_build
+	@-docker rm -f $(API_DOCKER_CONTAINER_NAME) 2>/dev/null
+	@echo Running container "$(API_DOCKER_CONTAINER_NAME)"
 	@docker run -d \
-		--name $(DOCKER_CONTAINER_NAME) \
+		--name $(API_DOCKER_CONTAINER_NAME) \
 		--env-file .env \
-		-m 12g \
 		-e GOOGLE_APPLICATION_CREDENTIALS='/app/service-account.json' \
 		-v $(shell pwd)/$(PATH_SERVICE_ACCOUNT_KEY):/app/service-account.json \
 		--entrypoint=sh \
 		-p 8080:8080 \
-		$(DOCKER_IMAGE_NAME) \
+		$(API_DOCKER_IMAGE_NAME) \
 		-c "tail -f /dev/null"
-	@echo Entering container "$(DOCKER_CONTAINER_NAME)"
-	@docker exec -it $(DOCKER_CONTAINER_NAME) sh
+	@echo Entering container "$(API_DOCKER_CONTAINER_NAME)"
+	@docker exec -it $(API_DOCKER_CONTAINER_NAME) sh
 
-# DEBUG
+# WHEN INSIDE THE CONTAINER, TEST
 # tree
 # printenv | grep GCP
 # ls -l /app/service-account.json
@@ -58,15 +95,15 @@ api_docker_run_detached: docker_cleanup api_local_docker_build
 
 
 # run docker container
-api_docker_run: docker_cleanup api_local_docker_build
-	@echo Running container "$(DOCKER_CONTAINER_NAME)"
+api_docker_run: docker_cleanup api_docker_build
+	@echo Running container "$(API_DOCKER_CONTAINER_NAME)"
 	@docker run -d \
-		--name $(DOCKER_CONTAINER_NAME) \
+		--name $(API_DOCKER_CONTAINER_NAME) \
 		--env-file .env \
 		-e GOOGLE_APPLICATION_CREDENTIALS='/app/service-account.json' \
 		-v $(shell pwd)/$(PATH_SERVICE_ACCOUNT_KEY):/app/service-account.json \
 		-p 8080:8080 \
-		$(DOCKER_IMAGE_NAME)
+		$(API_DOCKER_IMAGE_NAME)
 
 
 ############################### RETRAIN ###############################
