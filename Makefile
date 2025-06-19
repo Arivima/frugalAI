@@ -20,7 +20,7 @@ FRONT_DOCKER_CONTAINER_NAME='container-front'
 
 # test in local
 front_local:
-	cd front && uv run python -m streamlit run app/home.py
+	cd front && API_URL='http://0.0.0.0:8080' uv run python -m streamlit run app/home.py
 
 # build docker image
 front_docker_build:
@@ -35,6 +35,7 @@ front_docker_run_detached: docker_cleanup front_docker_build
 	@docker run -d \
 		--name $(FRONT_DOCKER_CONTAINER_NAME) \
 		--entrypoint=sh \
+		-e API_URL='http://0.0.0.0:8080' \
 		-p 8502:8502 \
 		$(FRONT_DOCKER_IMAGE_NAME) \
 		-c "tail -f /dev/null"
@@ -49,10 +50,11 @@ front_docker_run_detached: docker_cleanup front_docker_build
 
 
 # run docker container
-front_docker_run: docker_cleanup front_docker_build
+front_docker_run: front_docker_build
 	@echo Running container "$(FRONT_DOCKER_CONTAINER_NAME)"
 	@docker run -d \
 		--name $(FRONT_DOCKER_CONTAINER_NAME) \
+		-e API_URL='http://0.0.0.0:8080' \
 		-p 8502:8502 \
 		$(FRONT_DOCKER_IMAGE_NAME)
 
@@ -95,7 +97,7 @@ api_docker_run_detached: docker_cleanup api_docker_build
 
 
 # run docker container
-api_docker_run: docker_cleanup api_docker_build
+api_docker_run: api_docker_build
 	@echo Running container "$(API_DOCKER_CONTAINER_NAME)"
 	@docker run -d \
 		--name $(API_DOCKER_CONTAINER_NAME) \

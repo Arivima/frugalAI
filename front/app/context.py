@@ -1,8 +1,8 @@
 # app/config.py
-
+import os
 
 class Context:
-    API_URL = "http://127.0.0.1:8000/"
+    API_URL = os.getenv("API_URL", "")
     CATEGORY_LABEL = {
         "0": "Not disinformation",
         "1": "Challenges the existence of climate change",
