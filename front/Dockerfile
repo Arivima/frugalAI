@@ -22,7 +22,7 @@ ENV PYTHONPATH="/app:/app/shared:/app/front"
 
 EXPOSE 8502
 
-CMD ["uv", "run", "python", "-m", "streamlit", "run", "app/home.py", "--server.port=8502"]
+CMD ["uv", "run", "python", "-m", "streamlit", "run", "front/app/home.py", "--server.port=8502"]
 
 
 
