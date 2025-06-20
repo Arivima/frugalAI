@@ -1,3 +1,12 @@
+"""
+Streamlit page for the Climate Disinformation Detector app.
+Handles 
+- claim input, 
+- classification, 
+- result display, and 
+- user feedback.
+"""
+
 import logging
 
 import streamlit as st
@@ -8,8 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 class SessionState:
+    """
+    Utility class for managing and manipulating Streamlit session state variables
+    """
+
     @staticmethod
     def init():
+        """
+        Initialize the session state with default values if they are not already set.
+        Sets up keys for feedback status, dialog visibility, claim, and results.
+        """
         defaults = {
             "feedback_status": None,  # None, 'correct', 'incorrect'
             "show_dialog": False,
@@ -22,11 +39,17 @@ class SessionState:
 
     @staticmethod
     def reset_feedback():
+        """
+        Reset only the feedback-related session state variables to default values.
+        """
         st.session_state.feedback_status = None
         st.session_state.show_dialog = False
 
     @staticmethod
     def reset_state():
+        """
+        Reset all relevant session state variables to their default values.
+        """
         st.session_state.feedback_status = None
         st.session_state.show_dialog = False
         st.session_state.current_claim = None
@@ -34,16 +57,25 @@ class SessionState:
 
     @staticmethod
     def reset_results():
+        """
+        Reset only the current_results session state variable.
+        """
         st.session_state.current_results = None
 
     @staticmethod
     def debug():
+        """
+        For debugging : Print all session state variables and values to the app.
+        """
         st.write("---")
         for k, v in st.session_state.items():
             st.write(k, "|", v)
 
 
 def process_claim(claim):
+    """
+    Classifies the given claim and updates the session state with the results.
+    """
     with st.spinner("Analyzing claim..."):
         results = classify_claim_cached(claim)
 
@@ -57,6 +89,9 @@ def process_claim(claim):
 
 
 def display_results():
+    """
+    Display the classification results and explanation for the current claim.
+    """
     claim = st.session_state.current_claim
     st.markdown(f"'*{claim}*'")
 
@@ -82,6 +117,10 @@ def display_results():
 
 
 def handle_feedback_buttons():
+    """
+    Display feedback buttons for users to confirm or correct the classification.
+    Updates session state based on user input and shows a thank you message.
+    """
     if st.session_state.feedback_status is None:
         st.markdown("**Is this classification correct?**")
 
@@ -89,7 +128,6 @@ def handle_feedback_buttons():
         with col1:
             if st.button("👍 Correct", key="correct_btn", use_container_width=True):
                 st.session_state.feedback_status = "correct"
-                # do we do something here ?
                 st.rerun()
 
         with col2:
@@ -108,6 +146,9 @@ def handle_feedback_buttons():
 
 @st.dialog("Share your Feedback")
 def feedback_dialog():
+    """
+    Display a dialog for users to provide feedback by selecting the correct category for a claim.
+    """
     st.write("What is the correct category for:")
     st.info(st.session_state.current_claim)
 
@@ -143,6 +184,9 @@ def feedback_dialog():
 
 
 def app():
+    """
+    Main app function for the Climate Disinformation Detector.
+    """
     SessionState.init()
 
     st.markdown("### Climate Disinformation Detector")
@@ -184,7 +228,7 @@ def app():
     if st.session_state.show_dialog and st.session_state.current_claim:
         feedback_dialog()
 
-    SessionState.debug()
+    # SessionState.debug()
 
 
 if __name__ == "__main__":

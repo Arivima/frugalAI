@@ -1,3 +1,8 @@
+"""
+Main entry point for the Climate Debunker Streamlit app.
+Sets up logging and page configuration.
+"""
+
 import logging
 
 import streamlit as st

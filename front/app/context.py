@@ -1,7 +1,15 @@
-# app/config.py
+"""
+Context configuration for the Climate Disinformation Detector app.
+
+Defines API endpoint and category labels/descriptions for claim classification.
+"""
+
 import os
 
 class Context:
+    """
+    Holds configuration constants such as API URL, category labels, and descriptions.
+    """
     API_URL = os.getenv("API_URL", "")
     CATEGORY_LABEL = {
         "0": "Not disinformation",
