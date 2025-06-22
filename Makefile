@@ -1,6 +1,15 @@
 .PHONY: streamlit api up
 PATH_SERVICE_ACCOUNT_KEY=frugalai-2025-080c1bf50146.json
 
+GCP_PROJECT_ID=frugalai-2025
+
+TAG=latest
+ARTIFACT_REPOSITORY=frugalai-repo
+ARTIFACT_REGION=europe-west9
+# ARTIFACT_URI=europe-west9-docker.pkg.dev/frugalai-2025/frugalai-repo
+# ARTIFACT_IMAGE=europe-west9-docker.pkg.dev/frugalai-2025/frugalai-repo/front:latest
+ARTIFACT_URI = $(ARTIFACT_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPOSITORY)
+
 # stop all containers
 docker_stop:
 	@echo Stopping all running containers
@@ -29,6 +38,11 @@ API_DOCKER_CONTAINER_NAME='container-api'
 # test in local
 api_local:
 	UV_ENV_FILE=".env" uv run uvicorn api.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# stop the container and remove the image
+api_docker_down:
+	-docker rm -f $(API_DOCKER_CONTAINER_NAME) 2>/dev/null
+	-docker rmi $(API_DOCKER_IMAGE_NAME) 2>/dev/null
 
 # build docker image
 api_docker_build: api_docker_down
@@ -70,9 +84,16 @@ api_docker_run: api_docker_build
 		-p 8080:8080 \
 		$(API_DOCKER_IMAGE_NAME)
 
-api_docker_down:
-	-docker rm -f $(API_DOCKER_CONTAINER_NAME) 2>/dev/null
-	-docker rmi $(API_DOCKER_IMAGE_NAME) 2>/dev/null
+API_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(API_DOCKER_IMAGE_NAME):$(TAG)
+api_docker_tag_artifact:
+	docker tag $(API_DOCKER_IMAGE_NAME):$(TAG) $(API_ARTIFACT_IMAGE)
+
+api_docker_push_artifact:
+	docker push $(API_ARTIFACT_IMAGE)
+	
+api_artifact_push:
+	docker tag $(API_DOCKER_IMAGE_NAME):$(TAG) $(API_ARTIFACT_IMAGE)
+	docker push $(API_ARTIFACT_IMAGE)
 
 ################################ FRONT ################################
 
@@ -84,11 +105,15 @@ FRONT_DOCKER_CONTAINER_NAME='container-front'
 front_local:
 	cd front && API_URL='http://localhost:8080' uv run python -m streamlit run app/home.py
 
+# stop the container and remove the image
+front_docker_down:
+	-docker rm -f $(FRONT_DOCKER_CONTAINER_NAME) 2>/dev/null
+	-docker rmi $(FRONT_DOCKER_IMAGE_NAME) 2>/dev/null
+
 # build docker image
 front_docker_build: front_docker_down
 	@echo Building image "$(FRONT_DOCKER_IMAGE_NAME)"
 	docker build --no-cache -f front/Dockerfile -t $(FRONT_DOCKER_IMAGE_NAME) . 
-
 
 # testing inside the container
 front_docker_run_detached: front_docker_down front_docker_build
@@ -121,10 +146,37 @@ front_docker_run: front_docker_build
 		-p 8502:8502 \
 		$(FRONT_DOCKER_IMAGE_NAME)
 
-front_docker_down:
-	-docker rm -f $(FRONT_DOCKER_CONTAINER_NAME) 2>/dev/null
-	-docker rmi $(FRONT_DOCKER_IMAGE_NAME) 2>/dev/null
+FRONT_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(FRONT_DOCKER_IMAGE_NAME):$(TAG)
 
+# retag docker image to artifact syntax + push to artifact repo
+# requires steps below
+front_artifact_push:
+	docker tag $(FRONT_DOCKER_IMAGE_NAME):$(TAG) $(FRONT_ARTIFACT_IMAGE)
+	docker push $(FRONT_ARTIFACT_IMAGE)
+
+# Requirements:
+# Create Artifact Repository for Docker Images - if it does not exists already
+create_artifact_repo:
+	gcloud artifacts repositories create $(ARTIFACT_REPO_NAME) \
+		--repository-format=docker \
+		--location=$(REGION) \
+		--description="Docker repository for taxifare FastAPI app"
+
+gcloud_set_artifact_repo:
+	gcloud config set artifacts/repository $(ARTIFACT_REPO_NAME)
+	gcloud config set artifacts/location $(REGION)
+
+# Authenticate Docker with GCP Artifact Registry - updates docker config ~/.docker/config.json to include auth creds for artifact
+authenticate_docker_to_artifact:
+	gcloud auth configure-docker $(REGION)-docker.pkg.dev
+
+# rename an existing docker image so it can be pushed to artifact
+front_docker_tag_artifact:
+	docker tag $(FRONT_DOCKER_IMAGE_NAME):$(TAG) $(FRONT_ARTIFACT_IMAGE)
+
+# Push Docker Image to Artifact Registry
+front_docker_push_artifact:
+	docker push $(FRONT_ARTIFACT_IMAGE)
 
 ############################### RETRAIN ###############################
 ############################### SCHEDULER #############################
