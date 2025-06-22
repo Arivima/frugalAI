@@ -16,6 +16,7 @@ from trl import SFTTrainer
 from shared.model.prompt import PromptTemplate
 from shared.config import Config, setup_logging
 from shared.gcp import Gcp
+from shared.mlflow_utils import mlflow_track, mlflow_load_model, mlflow_log_model
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,7 @@ class LLMWrapper:
 
         return {"text": formatted_texts}
 
+    @mlflow_track
     def generate(
         self,
         quote: str = "Climate change is not happening",
@@ -182,6 +184,7 @@ class LLMWrapper:
 
         return category, explanation
 
+    @mlflow_track
     def train(
         self,
         data_train: Dataset,
@@ -253,8 +256,13 @@ class LLMWrapper:
         logger.info("trained !")
         print(stats)
 
-        # save to mlflow
+        mlflow_log_model(
+            model=self.model,
+            artifact_path="adapter-model",
+            registered_model_name="climate-llm-adapter"
+        )
 
+    @mlflow_track
     def evaluate(
         self,
         data : Dataset

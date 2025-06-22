@@ -11,6 +11,7 @@ class Config:
     LOCAL_DIRECTORY = os.getenv("LOCAL_DIRECTORY", "")
     ADAPTER_NAME = os.getenv("ADAPTER_NAME", "")
     MODEL_NAME = os.getenv("MODEL_NAME", "")
+    MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 
 
 def setup_logging():

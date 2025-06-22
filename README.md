@@ -7,22 +7,30 @@ mlpipeline doit etre run sur un GPU T4
 ### TODO
 -  front 
     - artifact ok 
-    - cloud run port ?
+    - cloud run port ? WIP
 - api 
-    - artifact
-    - vertex (fastapi+transformers)
-    - codecarbon
+    - artifact - ok
+    - vertex (fastapi+transformers) - WIP
 
 - mlflow
+    - local tracking server with remote ressources ok
+    - use mlflow_track into code and test - ok
+    - include codecarbon - ok
+    - dockerize and test - ok
+    - push to artifact - ok
+    - deploy to cloud run - WIP
+    - set up VPC network
+    
+    - simplifier image
+    - use mlflow log and load model and test (when retrain)
 
 - retrain + scheduler / workflow
     - GPU
     - eval old + retrain + eval new
     - paralleliser
-    - codecarbon
 
 - debug / fixes
-    - python version 3.11
+    - python version 3.12.11
     - docker images dynamic PORT
 
 - testing

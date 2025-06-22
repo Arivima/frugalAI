@@ -19,6 +19,8 @@
 **/models/
 **/outputs/
 
+**/mlruns/
+
 # for build
 **/Dockerfile
 **/Makefile

@@ -1,13 +1,13 @@
+# include .env
+ifneq (,$(wildcard .env))
+  include .env
+  export
+endif
+
+
 .PHONY: streamlit api up
-PATH_SERVICE_ACCOUNT_KEY=frugalai-2025-080c1bf50146.json
 
-GCP_PROJECT_ID=frugalai-2025
 
-TAG=latest
-ARTIFACT_REPOSITORY=frugalai-repo
-ARTIFACT_REGION=europe-west9
-# ARTIFACT_URI=europe-west9-docker.pkg.dev/frugalai-2025/frugalai-repo
-# ARTIFACT_IMAGE=europe-west9-docker.pkg.dev/frugalai-2025/frugalai-repo/front:latest
 ARTIFACT_URI = $(ARTIFACT_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPOSITORY)
 
 # stop all containers
@@ -181,4 +181,60 @@ front_docker_push_artifact:
 ############################### RETRAIN ###############################
 ############################### SCHEDULER #############################
 ############################### MLFLOW ################################
+
+MLFLOW_DOCKER_IMAGE_NAME=mlflow
+MLFLOW_DOCKER_CONTAINER_NAME='container-mlflow'
+
+MLFLOW_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(MLFLOW_DOCKER_IMAGE_NAME):$(TAG)
+
+BACKEND_STORE_URI=postgresql+psycopg2://$(DB_USER):$(DB_PASSWORD)@$(PUBLIC_IP):$(PORT)/$(DB_NAME)
+
+# test in local
+mlflow_local:
+	echo Starting mlflow server
+	cd mlflow-tracking && uv run mlflow server \
+	--backend-store-uri $(BACKEND_STORE_URI) \
+	--default-artifact-root $(GCS_BUCKET_NAME) \
+	--host 0.0.0.0 \
+	--port 5000
+
+connexion_test:
+	docker run -it --rm postgres:15 \
+	psql -h 34.163.67.202 -U mlflow_user -d mlflow_backend
+
+# stop the container and remove the image
+mlflow_docker_down:
+	-docker rm -f $(MLFLOW_DOCKER_CONTAINER_NAME) 2>/dev/null
+	-docker rmi $(MLFLOW_DOCKER_IMAGE_NAME) 2>/dev/null
+
+# build docker image
+mlflow_docker_build: mlflow_docker_down
+	@echo Building image "$(MLFLOW_DOCKER_IMAGE_NAME)"
+	docker build --no-cache -f mlflow-tracking/Dockerfile -t $(MLFLOW_DOCKER_IMAGE_NAME) . 
+
+# testing inside the container
+mlflow_docker_run: mlflow_docker_down mlflow_docker_build
+	-docker rm -f $(MLFLOW_DOCKER_CONTAINER_NAME) 2>/dev/null
+	@echo Running container "$(MLFLOW_DOCKER_CONTAINER_NAME)"
+	docker run -d \
+		--name $(MLFLOW_DOCKER_CONTAINER_NAME) \
+		--env-file .env \
+		-e GOOGLE_APPLICATION_CREDENTIALS='/app/service-account.json' \
+		-e ARTIFACT_ROOT=$(GCS_BUCKET_NAME) \
+		-e BACKEND_STORE_URI=$(BACKEND_STORE_URI)\
+		-v $(shell pwd)/$(PATH_SERVICE_ACCOUNT_KEY):/app/service-account.json \
+		-p 5000:5000 \
+		$(MLFLOW_DOCKER_IMAGE_NAME) 
+
+
+mlflow_docker_tag_artifact:
+	docker tag $(MLFLOW_DOCKER_IMAGE_NAME):$(TAG) $(MLFLOW_ARTIFACT_IMAGE)
+
+mlflow_docker_push_artifact:
+	docker push $(MLFLOW_ARTIFACT_IMAGE)
+	
+mlflow_artifact_push:
+	docker tag $(MLFLOW_DOCKER_IMAGE_NAME):$(TAG) $(API_ARTIFACT_IMAGE)
+	docker push $(API_ARTIFACT_IMAGE)
+
 ################################# API #################################
