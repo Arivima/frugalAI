@@ -5,17 +5,21 @@
 mlpipeline doit etre run sur un GPU T4
 
 ### TODO
--  front 
-https://front-1002353787705.europe-west9.run.app/
-    - artifact ok 
-    - cloud run port ? ok
 - api 
+    - links : creation BQ + iam BQ + iam Mflow
     - artifact - ok
     - vertex (fastapi+transformers) - WIP
         - update docker to make it vertex compatible
 
-- mlflow
+https://front-1002353787705.europe-west9.run.app/
+-  front 
+    - links : iam api
+    - artifact ok 
+    - cloud run port ? ok
+
 https://mlflow-1002353787705.europe-west9.run.app/
+- mlflow
+    - links : Cloud SQL + iam + GCS Bucket + iam
     - local tracking server with remote ressources ok
     - use mlflow_track into code and test - ok
     - include codecarbon - ok
@@ -29,9 +33,21 @@ https://mlflow-1002353787705.europe-west9.run.app/
     - set up VPC network
 
 - retrain + scheduler / workflow
+    - links : iam mlflow, iam BQ
     - GPU
     - eval old + retrain + eval new
     - paralleliser
+
+- CICD
+    - test
+    - build - matrix build if changes or use paths
+    - push
+
+- bonus
+    - logging
+    - monitoring
+    - langfuse
+    - terraform import project
 
 - debug / fixes
     - python version 3.12.11
@@ -47,16 +63,10 @@ https://mlflow-1002353787705.europe-west9.run.app/
     - cloud options (location, voir pour chaque produit, comparaison produits)
     - docker (diminuer la taille de l'image)
 
-- CICD
-    - test
-    - build - matrix build if changes or use paths
-    - push
-- logging
-- monitoring
-- langfuse
-- terraform import project
 
-bonus
+
+
+bonus++
 - model package
     - train from scratch
     - other models - ML, DL comparaison
