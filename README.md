@@ -18,9 +18,10 @@ mlpipeline doit etre run sur un GPU T4
     - include codecarbon - ok
     - dockerize and test - ok
     - push to artifact - ok
-    - deploy to cloud run - WIP
+    - deploy to cloud run - ok
+    - integration test from local WIP
     - set up VPC network
-    
+
     - simplifier image
     - use mlflow log and load model and test (when retrain)
 

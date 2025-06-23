@@ -184,10 +184,11 @@ front_docker_push_artifact:
 
 MLFLOW_DOCKER_IMAGE_NAME=mlflow
 MLFLOW_DOCKER_CONTAINER_NAME='container-mlflow'
+MLFLOW_PORT=5000
 
 MLFLOW_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(MLFLOW_DOCKER_IMAGE_NAME):$(TAG)
 
-BACKEND_STORE_URI=postgresql+psycopg2://$(DB_USER):$(DB_PASSWORD)@$(PUBLIC_IP):$(PORT)/$(DB_NAME)
+BACKEND_STORE_URI=postgresql+psycopg2://$(DB_USER):$(DB_PASSWORD)@$(PUBLIC_IP):$(DB_PORT)/$(DB_NAME)
 
 # test in local
 mlflow_local:
@@ -196,11 +197,11 @@ mlflow_local:
 	--backend-store-uri $(BACKEND_STORE_URI) \
 	--default-artifact-root $(GCS_BUCKET_NAME) \
 	--host 0.0.0.0 \
-	--port 5000
+	--port $(MLFLOW_PORT)
 
 connexion_test:
 	docker run -it --rm postgres:15 \
-	psql -h 34.163.67.202 -U mlflow_user -d mlflow_backend
+	psql -h $(PUBLIC_IP) -U $(DB_USER) -d $(DB_NAME)
 
 # stop the container and remove the image
 mlflow_docker_down:
@@ -208,12 +209,13 @@ mlflow_docker_down:
 	-docker rmi $(MLFLOW_DOCKER_IMAGE_NAME) 2>/dev/null
 
 # build docker image
+# Architecture Mismatch : from (ARM64/Apple Silicon) to (AMD64/x86_64) -> add --platform linux/amd64
 mlflow_docker_build: mlflow_docker_down
 	@echo Building image "$(MLFLOW_DOCKER_IMAGE_NAME)"
-	docker build --no-cache -f mlflow-tracking/Dockerfile -t $(MLFLOW_DOCKER_IMAGE_NAME) . 
+	docker build --platform linux/amd64 --no-cache -f mlflow-tracking/Dockerfile -t $(MLFLOW_DOCKER_IMAGE_NAME) . 
 
-# testing inside the container
-mlflow_docker_run: mlflow_docker_down mlflow_docker_build
+# run container, overwrites PORT and GOOGLE_APPLICATION_CREDENTIALS
+mlflow_docker_run: mlflow_docker_build
 	-docker rm -f $(MLFLOW_DOCKER_CONTAINER_NAME) 2>/dev/null
 	@echo Running container "$(MLFLOW_DOCKER_CONTAINER_NAME)"
 	docker run -d \
@@ -221,20 +223,65 @@ mlflow_docker_run: mlflow_docker_down mlflow_docker_build
 		--env-file .env \
 		-e GOOGLE_APPLICATION_CREDENTIALS='/app/service-account.json' \
 		-e ARTIFACT_ROOT=$(GCS_BUCKET_NAME) \
-		-e BACKEND_STORE_URI=$(BACKEND_STORE_URI)\
+		-e BACKEND_STORE_URI=$(BACKEND_STORE_URI) \
+		-e PORT=$(MLFLOW_PORT) \
 		-v $(shell pwd)/$(PATH_SERVICE_ACCOUNT_KEY):/app/service-account.json \
-		-p 5000:5000 \
+		-p $(MLFLOW_PORT):$(MLFLOW_PORT) \
 		$(MLFLOW_DOCKER_IMAGE_NAME) 
 
-
-mlflow_docker_tag_artifact:
+mlflow_tag_artifact:
 	docker tag $(MLFLOW_DOCKER_IMAGE_NAME):$(TAG) $(MLFLOW_ARTIFACT_IMAGE)
 
-mlflow_docker_push_artifact:
+mlflow_push_artifact:
 	docker push $(MLFLOW_ARTIFACT_IMAGE)
 	
-mlflow_artifact_push:
-	docker tag $(MLFLOW_DOCKER_IMAGE_NAME):$(TAG) $(API_ARTIFACT_IMAGE)
-	docker push $(API_ARTIFACT_IMAGE)
+mlflow_tag_push: mlflow_tag_artifact mlflow_push_artifact
+	@echo Pushing image "$(MLFLOW_ARTIFACT_IMAGE)" to google artifact registry
+
+# Memory limit of 512 MiB exceeded, need to have 1G
+# consider taking out the port value
+mlflow_deploy: mlflow_docker_build mlflow_tag_push
+	gcloud run deploy $(MLFLOW_DOCKER_IMAGE_NAME) \
+	--image=$(MLFLOW_ARTIFACT_IMAGE) \
+	--region=$(MLFLOW_REGION) \
+	--platform=managed \
+	--allow-unauthenticated \
+    --memory=1Gi \
+	--set-env-vars ARTIFACT_ROOT=$(GCS_BUCKET_NAME) \
+	--set-env-vars BACKEND_STORE_URI=$(BACKEND_STORE_URI) \
+	--service-account mlflow-executor@frugalai-2025.iam.gserviceaccount.com
+	--port=8080
+
+### Handling IAM and permissions
+mlflow_SA_create:
+	gcloud iam service-accounts create mlflow-executor \
+	--display-name "Service Account for MLflow on Cloud Run"
+
+mlflow_SA_list:
+	gcloud iam service-accounts list 
+
+# roles/cloudsql.client
+# roles/storage.admin
+# storage.objectAdmin
+mlflow_SA_add_iam:
+	gcloud projects add-iam-policy-binding frugalai-2025 \
+	--member="serviceAccount:mlflow-executor@frugalai-2025.iam.gserviceaccount.com" \
+	--role="roles/storage.objectAdmin"
+	gcloud projects add-iam-policy-binding frugalai-2025 \
+	--member="serviceAccount:mlflow-executor@frugalai-2025.iam.gserviceaccount.com" \
+	--role="roles/cloudsql.client"
+
+
+mlflow_SA_check_iam:
+	gcloud projects get-iam-policy frugalai-2025 \        
+	--flatten="bindings[].members" \
+	--format="table(bindings.role)" \
+	--filter="bindings.members:mlflow-executor@frugalai-2025.iam.gserviceaccount.com"
+
+mlflow_bucket_check_iam:
+	gsutil iam get gs://frugalai-mlflow-artifacts
+	
+mlflow_bucket_add_iam:
+	gsutil iam ch serviceAccount:mlflow-executor@frugalai-2025.iam.gserviceaccount.com:objectAdmin gs://frugalai-mlflow-artifacts
 
 ################################# API #################################

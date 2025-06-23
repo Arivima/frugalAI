@@ -1,5 +1,6 @@
 import functools
 import logging
+import os
 
 import mlflow
 from codecarbon import EmissionsTracker
@@ -8,7 +9,9 @@ from shared.config import Config, setup_logging
 
 logger = logging.getLogger(__name__)
 
-mlflow.set_tracking_uri(Config.MLFLOW_TRACKING_URI)
+# limit timeout
+os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "30"
+os.environ["MLFLOW_HTTP_REQUEST_MAX_RETRIES"] = "3"
 
 
 def mlflow_track(experiment_name: str = "default"):
@@ -21,69 +24,118 @@ def mlflow_track(experiment_name: str = "default"):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            mlflow.set_experiment(experiment_name)
-            tracker = EmissionsTracker(
-                project_name="frugalai",
-                measure_power_secs=1,
-                save_to_file=False,
-            )
-            with mlflow.start_run(run_name=func.__name__):
-                mlflow.autolog()
+            try:
+                mlflow.set_tracking_uri(Config.MLFLOW_TRACKING_URI)
+                logger.info("Connected to %s", Config.MLFLOW_TRACKING_URI)
 
-                tracker.start()
-                result = func(*args, **kwargs)
-                tracker.stop()
+                logger.info("creds %s", Config.GOOGLE_APPLICATION_CREDENTIALS)
 
-                for key, value in vars(tracker.final_emissions_data).items():
-                    mlflow.log_metric(f"codecarbon_{key}", value)
+                mlflow.set_experiment(experiment_name)
+                logger.info("Experiment %s", experiment_name)
 
-                mlflow.log_metric("duration", tracker.final_emissions_data.duration)
-                mlflow.log_metric("return_value", result)
+                with mlflow.start_run() as run:
+                    logger.info("Run name %s", run.info._run_name)
 
-                return result
+                    mlflow.autolog()
+
+                    tracker = EmissionsTracker(
+                        project_name="frugalai",
+                        measure_power_secs=1,
+                        save_to_file=False,
+                        log_level='error'
+                    )
+                    tracker.start()
+                    _result = func(*args, **kwargs)
+                    tracker.stop()
+
+                    for key, value in vars(tracker.final_emissions_data).items():
+                        if isinstance(value, (int, float)):
+                            mlflow.log_metric(f"codecarbon_{key}", value)
+                        else:
+                            mlflow.log_param(f"codecarbon_{key}", value)
+
+                    mlflow.log_metric("duration", tracker.final_emissions_data.duration)
+
+                    return _result
+
+            except Exception as e:
+                logger.error("MLflow tracking failed for %s : %s", func.__name__, e)
+                raise
 
         return wrapper
 
     return decorator
 
 
-# def mlflow_log_model(model, artifact_path: str, registered_model_name: str = None):
-#     """
-#     Log a PyTorch model (e.g., LLM adapter) to MLflow.
-#     """
-#     try:
-#         logger.info("Logging model to MLflow at: %s", artifact_path)
-#         mlflow.set_experiment("model-logging")
+def mlflow_log_model(model, name: str, registered_model_name: str = None):
+    """
+    Log a PyTorch model (e.g., LLM adapter) to MLflow.
+    """
+    try:
+        # mlflow.set_tracking_uri(Config.MLFLOW_TRACKING_URI)
+        # logger.info("Connected to %s", Config.MLFLOW_TRACKING_URI)
 
-#         with mlflow.start_run():
-#             mlflow.pytorch.log_model(model, artifact_path=artifact_path)
+        mlflow.sklearn.log_model(model, name=name)
 
-#             if registered_model_name:
-#                 mlflow.register_model(
-#                     f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}",
-#                     registered_model_name,
-#                 )
+        if registered_model_name:
+            mlflow.register_model(
+                f"runs:/{mlflow.active_run().info.run_id}/{name}",
+                registered_model_name,
+            )
 
-#         logger.info("✅ Model logged to MLflow")
-#     except Exception as e:
-#         logger.exception("❌ Failed to log model to MLflow: %s", e)
+        logger.info("✅ Model logged to MLflow")
+        return True
+
+    except Exception as e:
+        logger.error("❌ Failed to log model: %s", e)
+        return False
 
 
-# def mlflow_load_model(model_uri: str):
-#     """
-#     Load a model from MLflow (by URI).
-#     Example URI: 'models:/my-model-name/production'
-#     """
-#     try:
-#         logger.info("Loading model from MLflow: %s", model_uri)
-#         model = mlflow.pytorch.load_model(model_uri)
-#         return model
-#     except Exception as e:
-#         logger.exception("❌ Error loading model from MLflow: %s", e)
-#         raise
+def mlflow_load_model(model_uri: str):
+    """
+    Load a model from MLflow
+
+    Args:
+        model_uri: MLflow model URI (e.g., 'models:/my-model-name/production')
+    """
+    try:
+        mlflow.set_tracking_uri(Config.MLFLOW_TRACKING_URI)
+        logger.info("Loading model from MLflow: %s", model_uri)
+        model = mlflow.sklearn.load_model(model_uri)
+        logger.info("✅ Model loaded successfully")
+        return model
+
+    except Exception as e:
+        logger.error("❌ Error loading model from MLflow: %s", e)
+        raise
 
 
 if __name__ == "__main__":
     setup_logging()
 
-    print("Config.MLFLOW_TRACKING_URI", Config.MLFLOW_TRACKING_URI)
+    import mlflow.sklearn
+    from sklearn.datasets import make_classification
+    from sklearn.ensemble import RandomForestClassifier
+
+    # Test with safe mode (default)
+    @mlflow_track(experiment_name="test")
+    def test_train(X, y):
+        """blabla"""
+        clf = RandomForestClassifier()
+        clf.fit(X, y)
+        mlflow_log_model(
+            model=clf,
+            name="model",
+            registered_model_name="model"
+            )
+        return clf
+
+    X, y = make_classification(n_samples=100, n_features=4)
+    clf = test_train(X, y)
+    print(f"clf: {clf}")
+
+
+    loaded_model = mlflow_load_model("models:/model/latest")
+    test_prediction = loaded_model.predict(X[:1])
+
+    print(f"Test prediction: {test_prediction}, x {X[:1]} y {y[:1]}")

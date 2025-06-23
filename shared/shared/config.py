@@ -1,7 +1,6 @@
 import logging
 import os
 
-
 class Config:
     GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "")
     GCP_REGION = os.getenv("GCP_REGION", "")
@@ -11,6 +10,7 @@ class Config:
     LOCAL_DIRECTORY = os.getenv("LOCAL_DIRECTORY", "")
     ADAPTER_NAME = os.getenv("ADAPTER_NAME", "")
     MODEL_NAME = os.getenv("MODEL_NAME", "")
+    GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
     MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 
 
