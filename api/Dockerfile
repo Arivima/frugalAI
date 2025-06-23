@@ -19,37 +19,6 @@ COPY api/ ./api/
 COPY shared/ ./shared/
 
 ENV PYTHONPATH="/app:/app/shared:/app/api"
+ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8080
-
-CMD ["uv", "run", "uvicorn", "api.app.main:app", "--host", "0.0.0.0", "--port", "8080"]
-
-
-
-
-
-
-
-
-# Python won’t try to write .pyc files on the import of source modules.
-# ENV PYTHONDONTWRITEBYTECODE=1
-# Force the stdout and stderr streams to be unbuffered
-# ENV PYTHONUNBUFFERED=1
-
-# RUN useradd -m -u 1000 appuser
-# RUN chown -R appuser:appuser /app
-# USER appuser
-
-# COPY ../shared/pyproject.toml ../shared/uv.lock ./shared/
-# RUN pip install uv && \
-#     cd shared && uv pip install -r uv.lock && cd ..
-
-# COPY pyproject.toml uv.lock ./
-
-# -r uv.lock 
-#--no-dev --system
-
-
-# ENV PYTHONPATH="/app:/app/shared"
-
-# HEALTHCHECK CMD curl --fail http://localhost:8080/health || exit 1
+CMD ["sh", "-c", "uvicorn api.app.main:app --host 0.0.0.0 --port $PORT"]

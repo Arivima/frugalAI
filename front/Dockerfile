@@ -19,12 +19,9 @@ COPY front/ ./front/
 COPY shared/ ./shared/
 
 ENV PYTHONPATH="/app:/app/shared:/app/front"
+ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8502
-
-CMD ["uv", "run", "python", "-m", "streamlit", "run", "front/app/home.py", "--server.port=8502"]
-
-
+CMD ["sh", "-c", "uv run python -m streamlit run front/app/home.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true"]
 
 
 

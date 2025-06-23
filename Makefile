@@ -34,10 +34,13 @@ docker_up: docker_force_cleanup api_docker_run front_docker_run
 
 API_DOCKER_IMAGE_NAME=api
 API_DOCKER_CONTAINER_NAME='container-api'
+API_PORT=8080
+API_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(API_DOCKER_IMAGE_NAME):$(TAG)
+API_REGION=europe-west9
 
 # test in local
 api_local:
-	UV_ENV_FILE=".env" uv run uvicorn api.app.main:app --host 0.0.0.0 --port 8080 --reload
+	UV_ENV_FILE=".env" uv run uvicorn api.app.main:app --host 0.0.0.0 --port $(API_PORT) --reload
 
 # stop the container and remove the image
 api_docker_down:
@@ -47,7 +50,7 @@ api_docker_down:
 # build docker image
 api_docker_build: api_docker_down
 	@echo Building image "$(API_DOCKER_IMAGE_NAME)"
-	docker build --no-cache -f api/Dockerfile -t $(API_DOCKER_IMAGE_NAME) . 
+	docker build --platform linux/amd64 --no-cache -f api/Dockerfile -t $(API_DOCKER_IMAGE_NAME) . 
 
 # testing inside the container
 api_docker_run_detached: api_docker_down api_docker_build
@@ -59,7 +62,7 @@ api_docker_run_detached: api_docker_down api_docker_build
 		-e GOOGLE_APPLICATION_CREDENTIALS='/app/service-account.json' \
 		-v $(shell pwd)/$(PATH_SERVICE_ACCOUNT_KEY):/app/service-account.json \
 		--entrypoint=sh \
-		-p 8080:8080 \
+		-p $(API_PORT):$(API_PORT) \
 		$(API_DOCKER_IMAGE_NAME) \
 		-c "tail -f /dev/null"
 	@echo Entering container "$(API_DOCKER_CONTAINER_NAME)"
@@ -69,7 +72,7 @@ api_docker_run_detached: api_docker_down api_docker_build
 # tree
 # printenv | grep GCP
 # ls -l /app/service-account.json
-# uvicorn api.app.main:app --host 0.0.0.0 --port 8080
+# uvicorn api.app.main:app --host 0.0.0.0 --port $(API_PORT)
 
 
 # run docker container
@@ -81,24 +84,61 @@ api_docker_run: api_docker_build
 		--env-file .env \
 		-e GOOGLE_APPLICATION_CREDENTIALS='/app/service-account.json' \
 		-v $(shell pwd)/$(PATH_SERVICE_ACCOUNT_KEY):/app/service-account.json \
-		-p 8080:8080 \
+		-p $(API_PORT):$(API_PORT) \
 		$(API_DOCKER_IMAGE_NAME)
 
-API_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(API_DOCKER_IMAGE_NAME):$(TAG)
-api_docker_tag_artifact:
+api_tag_artifact:
 	docker tag $(API_DOCKER_IMAGE_NAME):$(TAG) $(API_ARTIFACT_IMAGE)
 
-api_docker_push_artifact:
+api_push_artifact:
 	docker push $(API_ARTIFACT_IMAGE)
 	
-api_artifact_push:
-	docker tag $(API_DOCKER_IMAGE_NAME):$(TAG) $(API_ARTIFACT_IMAGE)
-	docker push $(API_ARTIFACT_IMAGE)
+api_tag_push: api_tag_artifact api_push_artifact
+	@echo Pushing image "$(API_ARTIFACT_IMAGE)" to google artifact registry
+
+# api_deploy: api_docker_build api_tag_push
+# 	gcloud services enable aiplatform.googleapis.com
+# 	gcloud ai models upload \
+# 	--region=$(API_REGION) \
+# 	--display-name=api \
+# 	--container-image-uri=$(API_ARTIFACT_IMAGE)
+# 	gcloud ai endpoints create \
+# 	--region=$(API_REGION) \
+# 	--display-name=api-endpoint
+
+# 	gcloud run deploy $(API_DOCKER_IMAGE_NAME) \
+# 	--image=$(API_ARTIFACT_IMAGE) \
+# 	--region=$(API_REGION) \
+# 	--platform=managed \
+# 	--allow-unauthenticated \
+# 	--set-env-vars="$(grep -v '^#' .env | xargs | sed 's/ /,/g')" \
+# 	--service-account api-sa@frugalai-2025.iam.gserviceaccount.com \
+# 	--port=$(API_PORT)
+
+api_SA_create:
+	gcloud iam service-accounts create api-sa \   
+    --display-name="API Service Account" 
+
+SA_list:
+	gcloud iam service-accounts list 
+
+# roles/bigquery.dataEditor
+# roles/run.invoker
+api_SA_add_iam:
+	gcloud projects add-iam-policy-binding frugalai-2025 \
+	--member="serviceAccount:api-sa@frugalai-2025.iam.gserviceaccount.com" \
+	--role="roles/bigquery.dataEditor"
+	gcloud projects add-iam-policy-binding frugalai-2025 \
+	--member="serviceAccount:api-sa@frugalai-2025.iam.gserviceaccount.com" \
+	--role="roles/run.invoker"
+
 
 ################################ FRONT ################################
 
 FRONT_DOCKER_IMAGE_NAME=front
 FRONT_DOCKER_CONTAINER_NAME='container-front'
+FRONT_PORT=8502
+FRONT_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(FRONT_DOCKER_IMAGE_NAME):$(TAG)
 
 
 # test in local
@@ -113,7 +153,7 @@ front_docker_down:
 # build docker image
 front_docker_build: front_docker_down
 	@echo Building image "$(FRONT_DOCKER_IMAGE_NAME)"
-	docker build --no-cache -f front/Dockerfile -t $(FRONT_DOCKER_IMAGE_NAME) . 
+	docker build --platform linux/amd64 --no-cache -f front/Dockerfile -t $(FRONT_DOCKER_IMAGE_NAME) . 
 
 # testing inside the container
 front_docker_run_detached: front_docker_down front_docker_build
@@ -143,16 +183,10 @@ front_docker_run: front_docker_build
 	docker run -d \
 		--name $(FRONT_DOCKER_CONTAINER_NAME) \
 		-e API_URL='http://localhost:8080' \
-		-p 8502:8502 \
+		-e PORT=$(FRONT_PORT) \
+		-p $(FRONT_PORT):$(FRONT_PORT) \
 		$(FRONT_DOCKER_IMAGE_NAME)
 
-FRONT_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(FRONT_DOCKER_IMAGE_NAME):$(TAG)
-
-# retag docker image to artifact syntax + push to artifact repo
-# requires steps below
-front_artifact_push:
-	docker tag $(FRONT_DOCKER_IMAGE_NAME):$(TAG) $(FRONT_ARTIFACT_IMAGE)
-	docker push $(FRONT_ARTIFACT_IMAGE)
 
 # Requirements:
 # Create Artifact Repository for Docker Images - if it does not exists already
@@ -171,12 +205,29 @@ authenticate_docker_to_artifact:
 	gcloud auth configure-docker $(REGION)-docker.pkg.dev
 
 # rename an existing docker image so it can be pushed to artifact
-front_docker_tag_artifact:
+front_tag_artifact:
 	docker tag $(FRONT_DOCKER_IMAGE_NAME):$(TAG) $(FRONT_ARTIFACT_IMAGE)
 
 # Push Docker Image to Artifact Registry
-front_docker_push_artifact:
+front_push_artifact:
 	docker push $(FRONT_ARTIFACT_IMAGE)
+
+# retag docker image to artifact syntax + push to artifact repo
+# requires steps below
+front_tag_push: front_tag_artifact front_push_artifact
+	@echo Pushing image "$(FRONT_ARTIFACT_IMAGE)" to google artifact registry
+
+# roles/run.invoker
+
+front_deploy: front_docker_build front_tag_push
+	gcloud run deploy $(FRONT_DOCKER_IMAGE_NAME) \
+	--image=$(FRONT_ARTIFACT_IMAGE) \
+	--region=$(REGION) \
+	--platform=managed \
+	--allow-unauthenticated \
+	--set-env-vars API_URL='http://localhost:8080' \
+	--service-account front-sa@frugalai-2025.iam.gserviceaccount.com \
+	--port=$(FRONT_PORT)
 
 ############################### RETRAIN ###############################
 ############################### SCHEDULER #############################
