@@ -1,25 +1,13 @@
 [project]
 name = "frugalai-api"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "API serving predict and feedback endpoints"
 requires-python = ">=3.9"
 dependencies = [
-    "datasets>=3.6.0",
     "fastapi[standard]>=0.115.12",
-    "google>=3.0.0",
-    "google-cloud-bigquery>=3.34.0",
-    "google-cloud-storage>=3.1.0",
-    "numpy>=2.0.2",
     "packaging>=25.0",
-    "pandas>=2.3.0",
-    "peft>=0.15.2",
-    "pydantic>=2.11.7",
     "requests>=2.32.3",
     "shared",
-    "torch>=2.7.1",
-    "transformers>=4.52.4",
-    "trl>=0.18.2",
 ]
 
 [tool.uv.sources]

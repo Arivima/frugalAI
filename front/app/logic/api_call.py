@@ -12,13 +12,18 @@ import streamlit as st
 from app.context import Context
 from pydantic import ValidationError
 
-from shared.pydantic_models import ClassifyRequest, ClassifyResponse, FeedbackRequest
+from shared.pydantic_models import (
+    ClassifyRequest,
+    PredictRequest, 
+    PredictResponse, 
+    FeedbackRequest
+)
 
 logger = logging.getLogger(__name__)
 
 
 @st.cache_data(show_spinner=False)
-def classify_claim_cached(claim_text: str) -> Optional[ClassifyResponse]:
+def classify_claim_cached(claim_text: str) -> Optional[PredictResponse]:
     """
     Sends a claim to the backend API for classification and returns the result.
     Cached to avoid redundant API calls for the same input.
@@ -27,27 +32,36 @@ def classify_claim_cached(claim_text: str) -> Optional[ClassifyResponse]:
         claim_text (str): The claim to classify.
 
     Returns:
-        Optional[ClassifyResponse]: The classification result, or None if there is an error.
+        Optional[PredictResponse]: The classification result, or None if there is an error.
     """
-    def classify_claim(claim_text: str) -> Optional[ClassifyResponse]:
+    def classify_claim(claim_text: str) -> Optional[PredictResponse]:
         try:
-            payload = ClassifyRequest(user_claim=claim_text)
+            payload = PredictRequest(instances=[ClassifyRequest(user_claim=claim_text)])
             logger.info(
                 "classify_claim | user_claim : %s",
-                payload.model_dump()["user_claim"][:50],
+                payload.model_dump()["instances"][0]["user_claim"][:50],
             )
 
-            endpoint = Context.API_URL + "classify"
-            response = requests.post(endpoint, json=payload.model_dump(), timeout=30)
+            endpoint = Context.API_URL + "/predict"
+            response = requests.post(endpoint, json=payload.model_dump(), timeout=200)
             response.raise_for_status()
             data = response.json()
 
-            validated_data = ClassifyResponse(**data)
+            print('ici')
+            print()
+            print()
+            print(data)
+            print()
+            print()
+            print()
+
+            validated_data = PredictResponse(**data)
+            validated_data = validated_data.predictions[0]
             logger.info(
                 "classify_claim | response.model_name : %s", validated_data.model_name
             )
             logger.info(
-                "classify_claim | response.user_claim : %s",
+                "classify_claim | user_claim : %s",
                 validated_data.user_claim[:50],
             )
             logger.info(
@@ -116,7 +130,7 @@ def send_feedback(
             payload.model_dump()["correct_category"],
         )
 
-        endpoint = Context.API_URL + "feedback"
+        endpoint = Context.API_URL + "/feedback"
         logger.info(endpoint)
 
         response = requests.post(endpoint, json=payload.model_dump(), timeout=30)

@@ -1,6 +1,8 @@
 import logging
 import os
 import re
+import gc
+
 
 import torch
 from datasets import Dataset
@@ -17,6 +19,7 @@ from shared.model.prompt import PromptTemplate
 from shared.config import Config, setup_logging
 from shared.gcp import Gcp
 from shared.mlflow_utils import mlflow_track, mlflow_load_model, mlflow_log_model
+from shared.system_utils import format_memory_info, get_memory_info
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,8 @@ class LLMWrapper:
     ):
         try:
             logger.info("Loading model and tokenizer")
+            total, start = get_memory_info()
+            logger.info(format_memory_info(total_gb=total, available_gb=start))
 
             # loading the adapter from gcs if not already done
             self.local_directory = local_directory
@@ -63,9 +68,7 @@ class LLMWrapper:
                 self.device = "cpu"
             self.torch_dtype = torch.float16 if self.device == "mps" else torch.float32
             device_map = "auto" if self.device != "cpu" else None
-            logger.info(
-                f"Using device={self.device}, dtype={self.torch_dtype}, device_map={device_map}"
-            )
+            logger.info("Using device=%s, dtype=%s, device_map=%s", self.device, self.torch_dtype, device_map)
 
             # loading base model from hugging face
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -84,10 +87,12 @@ class LLMWrapper:
                 device_map=device_map,
             ).to(self.device)
 
-            logger.info(f"✅ model loaded on {next(self.model.parameters()).device}")
+            logger.info("✅ model loaded on %s", next(self.model.parameters()).device)
+            total, end = get_memory_info()
+            logger.info(format_memory_info(total_gb=total, available_gb=end, model_size=start-end))
 
         except Exception as e:
-            logger.exception(f"❌ Error loading model: {e}.")
+            logger.exception("❌ Error loading model: %s.", e)
 
     def _apply_chat_template_generation(self, quotes):
         formatted_texts = []
@@ -150,7 +155,7 @@ class LLMWrapper:
 
         return {"text": formatted_texts}
 
-    @mlflow_track
+    @mlflow_track(experiment_name='generate')
     def generate(
         self,
         quote: str = "Climate change is not happening",
@@ -162,9 +167,10 @@ class LLMWrapper:
         """
         assert self.model is not None
 
-        logger.info("LLMWrapper.generate : %s", quote)
+        logger.info("LLMWrapper.generate quote: %s", quote)
 
-        formatted_prompt = self._apply_chat_template_generation(quotes=quote)[0]
+        formatted_prompt = self._apply_chat_template_generation(quotes=[quote])[0]
+        logger.info("LLMWrapper.generate formatted_prompt: %s", formatted_prompt)
         inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.device)
 
         self.model.eval()
@@ -258,10 +264,11 @@ class LLMWrapper:
 
         mlflow_log_model(
             model=self.model,
-            artifact_path="adapter-model",
-            registered_model_name="climate-llm-adapter"
-        )
+            name="model",
+            registered_model_name="model"
+            )
 
+        
     @mlflow_track
     def evaluate(
         self,
@@ -272,17 +279,24 @@ class LLMWrapper:
     def clear(self):
         """Free model and tokenizer from RAM"""
         try:
+            total, start = get_memory_info()
+            logger.info(format_memory_info(total_gb=total, available_gb=start))
             del self.model
             del self.tokenizer
+            gc.collect()
 
-            if self.device == "cuda":
+            if self.device == "cuda" and torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            elif self.device == "mps":
+            elif self.device == "mps" and torch.backends.mps.is_available():
                 torch.mps.empty_cache()
-            logger.info("Cleared model from memory")
 
-        except Exception:
-            pass
+            logger.info("Cleared model from memory")
+            total, end = get_memory_info()
+            logger.info(format_memory_info(total_gb=total, available_gb=end, model_size=start-end))
+
+        except Exception as e:
+            logger.warning(f"Failed to clear model from memory: {e}")
+            
 
 
 if __name__ == "__main__":

@@ -5,19 +5,30 @@
 mlpipeline doit etre run sur un GPU T4
 
 ### TODO
+    - python version 3.12.11
+    - simplifier image + multiphase pour alleger
+
+1. deploy api
+2. link to front
+3. integration test - front/api/mlflow/bq/cloudsql/bucketmodels
+4. CICD
+5. optimisation
+5. retrain
+
 - api 
     - links : creation BQ + iam BQ + iam Mflow
     - artifact - ok
     - vertex (fastapi+transformers) - WIP
-        - update docker to make it vertex compatible
+        - update docker to make it vertex compatible - ok
 
-https://front-1002353787705.europe-west9.run.app/
+https://front-1002353787705.europe-west2.run.app
 -  front 
     - links : iam api
     - artifact ok 
     - cloud run port ? ok
+    - mettre a jour l'adresse de l'endpoint
 
-https://mlflow-1002353787705.europe-west9.run.app/
+https://mlflow-1002353787705.europe-west2.run.app
 - mlflow
     - links : Cloud SQL + iam + GCS Bucket + iam
     - local tracking server with remote ressources ok
@@ -45,23 +56,20 @@ https://mlflow-1002353787705.europe-west9.run.app/
 
 - bonus
     - logging
-    - monitoring
+    - monitoring prometheus + grafana
     - langfuse
     - terraform import project
 
 - debug / fixes
-    - python version 3.12.11
-    - docker images dynamic PORT
-    - simplifier image + multiphase pour alleger
 
 - optimization 
     - model (distillation, pruna, quantisation)
-    - api (cached model, trigger reload)
-    - front (cache requests/response)
+    - ok api (cached model, trigger reload)
+    - ok front (cache requests/response)
     - scheduler (daily check, triggers reload if enough feedback, update flag retrained)
     - (vllm (options, batch))
-    - cloud options (location, voir pour chaque produit, comparaison produits)
-    - docker (diminuer la taille de l'image)
+    - ok cloud options (location, voir pour chaque produit, comparaison produits)
+    - ok docker (diminuer la taille de l'image)
 
 
 

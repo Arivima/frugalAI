@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,13 @@ class FeedbackRequest(BaseModel):
     assistant_explanation: Optional[str] = Field(
         ..., strip_whitespace=True, min_length=1
     )
+
+class PredictRequest(BaseModel):
+    instances: List[ClassifyRequest]
+
+
+class PredictResponse(BaseModel):
+    predictions: List[ClassifyResponse]
 
 
 # BQ

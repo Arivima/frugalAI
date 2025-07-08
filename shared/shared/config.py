@@ -1,6 +1,8 @@
 import logging
 import os
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+          
 class Config:
     GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "")
     GCP_REGION = os.getenv("GCP_REGION", "")
@@ -12,7 +14,6 @@ class Config:
     MODEL_NAME = os.getenv("MODEL_NAME", "")
     GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
     MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
-
 
 def setup_logging():
     logging.basicConfig(

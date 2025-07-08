@@ -7,8 +7,70 @@ endif
 
 .PHONY: streamlit api up
 
+PATH_SERVICE_ACCOUNT_KEY=frugalai-2025-080c1bf50146.json
 
-ARTIFACT_URI = $(ARTIFACT_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPOSITORY)
+# Artifact
+ARTIFACT_REPOSITORY=frugalai-repo
+ARTIFACT_URI = $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REPOSITORY)
+TAG=latest
+
+# Cloud SQL
+INSTANCE_NAME=mlflow-backend-store-replica
+DB_NAME=mlflow_backend
+DB_USER=mlflow_user
+DB_PASSWORD=frugalai
+PUBLIC_IP=34.105.180.151
+DB_PORT=5432
+
+########## RULES TO DEPLOY ##########
+# mlflow_deploy
+# front_deploy
+
+
+
+########## Create storage ressources ##########
+# Bucket : Mlflow artifact store + models bucket
+# create_bucket:
+# 	gsutil cp -r gs://frugalai-models/* gs://$(GCS_BUCKET_NAME)
+# 	gsutil cp -r gs://frugalai-mlflow-artifacts/* gs://frugalai-mlflow-artifacts-w2/
+# gsutil mb -p $(GCP_PROJECT_ID) -l $(GCP_REGION) -c standard gs://$(GCS_BUCKET_NAME)
+# gsutil mb -p $(GCP_PROJECT_ID) -l $(GCP_REGION) -c standard gs://$(GCS_MLFLOW_BUCKET_NAME)
+
+# CloudSQL : Mlflow backend
+create_sql_replica:
+	gcloud sql instances create $(INSTANCE_NAME) \
+	--master-instance-name=mlflow-backend-store \
+	--region=$(GCP_REGION)
+	gcloud sql instances promote-replica $(INSTANCE_NAME)
+
+# Feedback Big query
+create_bq:
+	bq mk \
+	--dataset \
+	--location=$(GCP_REGION) \
+	$(BQ_DATASET_ID)_w2
+	bq show --schema --format=prettyjson $(BQ_DATASET_ID).$(BQ_TABLE_ID) > schema.json
+	bq mk --table \
+	--schema=schema.json \
+	$(BQ_DATASET_ID)_w2.$(BQ_TABLE_ID)
+
+# Artifact registry for docker images : front, api, mlflow-tracking
+create_artifact_repo:
+	gcloud artifacts repositories create $(ARTIFACT_REPOSITORY) \
+		--repository-format=docker \
+		--location=$(GCP_REGION) \
+		--description="Docker repository"
+
+gcloud_set_artifact_repo:
+	gcloud config set artifacts/repository $(ARTIFACT_REPOSITORY)
+	gcloud config set artifacts/location $(GCP_REGION)
+
+# Authenticate Docker with GCP Artifact Registry - updates docker config ~/.docker/config.json to include auth creds for artifact
+authenticate_docker_to_artifact:
+	gcloud auth configure-docker $(GCP_REGION)-docker.pkg.dev
+
+
+
 
 # stop all containers
 docker_stop:
@@ -36,11 +98,13 @@ API_DOCKER_IMAGE_NAME=api
 API_DOCKER_CONTAINER_NAME='container-api'
 API_PORT=8080
 API_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(API_DOCKER_IMAGE_NAME):$(TAG)
-API_REGION=europe-west9
+
+PROD_MODEL_NAME=frugalai-api
+
 
 # test in local
 api_local:
-	UV_ENV_FILE=".env" uv run uvicorn api.app.main:app --host 0.0.0.0 --port $(API_PORT) --reload
+	UV_ENV_FILE=".env" && cd api && uv run uvicorn app.main:app --host 0.0.0.0 --port $(API_PORT) --reload
 
 # stop the container and remove the image
 api_docker_down:
@@ -49,6 +113,10 @@ api_docker_down:
 
 # build docker image
 api_docker_build: api_docker_down
+	@echo Building image "$(API_DOCKER_IMAGE_NAME)"
+	docker build --no-cache -f api/Dockerfile -t $(API_DOCKER_IMAGE_NAME) . 
+
+api_docker_build_artifact: api_docker_down
 	@echo Building image "$(API_DOCKER_IMAGE_NAME)"
 	docker build --platform linux/amd64 --no-cache -f api/Dockerfile -t $(API_DOCKER_IMAGE_NAME) . 
 
@@ -96,24 +164,62 @@ api_push_artifact:
 api_tag_push: api_tag_artifact api_push_artifact
 	@echo Pushing image "$(API_ARTIFACT_IMAGE)" to google artifact registry
 
-# api_deploy: api_docker_build api_tag_push
-# 	gcloud services enable aiplatform.googleapis.com
-# 	gcloud ai models upload \
-# 	--region=$(API_REGION) \
-# 	--display-name=api \
-# 	--container-image-uri=$(API_ARTIFACT_IMAGE)
-# 	gcloud ai endpoints create \
-# 	--region=$(API_REGION) \
-# 	--display-name=api-endpoint
+# roles/aiplatform.admin
+# roles/artifactregistry.reader
+# roles/storage.objectViewer
+api_upload_container_vertex: api_docker_build_artifact api_tag_push
+	gcloud ai models upload \
+	--project=$(GCP_PROJECT_ID) \
+	--region=$(GCP_REGION) \
+	--display-name=$(PROD_MODEL_NAME) \
+	--container-image-uri=$(API_ARTIFACT_IMAGE) \
+	--container-health-route=/health \
+	--container-predict-route=/predict \
+	--container-env-vars="$(grep -v '^#' .env | xargs | sed 's/ /,/g')" \
+	--container-port=$(API_PORT) \
+	--service-account=api-sa@frugalai-2025.iam.gserviceaccount.com
 
-# 	gcloud run deploy $(API_DOCKER_IMAGE_NAME) \
-# 	--image=$(API_ARTIFACT_IMAGE) \
-# 	--region=$(API_REGION) \
-# 	--platform=managed \
-# 	--allow-unauthenticated \
-# 	--set-env-vars="$(grep -v '^#' .env | xargs | sed 's/ /,/g')" \
-# 	--service-account api-sa@frugalai-2025.iam.gserviceaccount.com \
-# 	--port=$(API_PORT)
+api_create_endpoint_vertex:
+	gcloud ai endpoints create \
+	--region=$(GCP_REGION) \
+	--display-name=$(PROD_MODEL_NAME)-endpoint
+
+api_which_endpoin_id:
+	gcloud ai endpoints list \
+	--region=$(GCP_REGION) \
+	--filter="displayName=$(PROD_MODEL_NAME)-endpoint" \
+	--format="value(name)"
+
+ENDPOINT_ID=5074127414930440192
+
+api_which_model_id:
+	gcloud ai models list \
+	--region=$(GCP_REGION) \
+	--filter="displayName=$(PROD_MODEL_NAME)" \
+	--format="value(name)"
+
+MODEL_ID=956755436072075264
+
+api_deploy_endpoint:
+	gcloud ai endpoints deploy-model $(ENDPOINT_ID) \
+	--region=$(GCP_REGION) \
+	--model=$(MODEL_ID) \
+	--display-name=$(PROD_MODEL_NAME)-deployment \
+	--machine-type=n1-standard-4 \
+	--accelerator=type=nvidia-tesla-t4,count=1 \
+	--traffic-split=0=100 \
+	--service-account=api-sa@frugalai-2025.iam.gserviceaccount.com \
+	--enable-access-logging
+
+api_test_endpoint: 
+	gcloud ai endpoints predict $(ENDPOINT_ID) \
+	--region=$(GCP_REGION) \
+	--json-request=<(echo '{"instances": [{"user_claim": "Climate change is very nice."}]}')
+
+# api_deploy_cleanup:
+# 	gcloud ai models list --region=$(GCP_REGION)
+# 	gcloud ai models delete <model-id> --region=$(GCP_REGION)
+
 
 api_SA_create:
 	gcloud iam service-accounts create api-sa \   
@@ -153,6 +259,10 @@ front_docker_down:
 # build docker image
 front_docker_build: front_docker_down
 	@echo Building image "$(FRONT_DOCKER_IMAGE_NAME)"
+	docker build --no-cache -f front/Dockerfile -t $(FRONT_DOCKER_IMAGE_NAME) . 
+
+front_docker_build_artifact: front_docker_down
+	@echo Building image "$(FRONT_DOCKER_IMAGE_NAME)"
 	docker build --platform linux/amd64 --no-cache -f front/Dockerfile -t $(FRONT_DOCKER_IMAGE_NAME) . 
 
 # testing inside the container
@@ -189,21 +299,6 @@ front_docker_run: front_docker_build
 
 
 # Requirements:
-# Create Artifact Repository for Docker Images - if it does not exists already
-create_artifact_repo:
-	gcloud artifacts repositories create $(ARTIFACT_REPO_NAME) \
-		--repository-format=docker \
-		--location=$(REGION) \
-		--description="Docker repository for taxifare FastAPI app"
-
-gcloud_set_artifact_repo:
-	gcloud config set artifacts/repository $(ARTIFACT_REPO_NAME)
-	gcloud config set artifacts/location $(REGION)
-
-# Authenticate Docker with GCP Artifact Registry - updates docker config ~/.docker/config.json to include auth creds for artifact
-authenticate_docker_to_artifact:
-	gcloud auth configure-docker $(REGION)-docker.pkg.dev
-
 # rename an existing docker image so it can be pushed to artifact
 front_tag_artifact:
 	docker tag $(FRONT_DOCKER_IMAGE_NAME):$(TAG) $(FRONT_ARTIFACT_IMAGE)
@@ -219,10 +314,10 @@ front_tag_push: front_tag_artifact front_push_artifact
 
 # roles/run.invoker
 
-front_deploy: front_docker_build front_tag_push
+front_deploy: front_docker_build_artifact front_tag_push
 	gcloud run deploy $(FRONT_DOCKER_IMAGE_NAME) \
 	--image=$(FRONT_ARTIFACT_IMAGE) \
-	--region=$(REGION) \
+	--region=$(GCP_REGION) \
 	--platform=managed \
 	--allow-unauthenticated \
 	--set-env-vars API_URL='http://localhost:8080' \
@@ -238,15 +333,17 @@ MLFLOW_DOCKER_CONTAINER_NAME='container-mlflow'
 MLFLOW_PORT=5000
 
 MLFLOW_ARTIFACT_IMAGE=$(ARTIFACT_URI)/$(MLFLOW_DOCKER_IMAGE_NAME):$(TAG)
-
 BACKEND_STORE_URI=postgresql+psycopg2://$(DB_USER):$(DB_PASSWORD)@$(PUBLIC_IP):$(DB_PORT)/$(DB_NAME)
+GCS_MLFLOW_BUCKET_NAME=frugalai-mlflow-artifacts-w2
+
+
 
 # test in local
 mlflow_local:
 	echo Starting mlflow server
 	cd mlflow-tracking && uv run mlflow server \
 	--backend-store-uri $(BACKEND_STORE_URI) \
-	--default-artifact-root $(GCS_BUCKET_NAME) \
+	--default-artifact-root gs://$(GCS_MLFLOW_BUCKET_NAME) \
 	--host 0.0.0.0 \
 	--port $(MLFLOW_PORT)
 
@@ -263,6 +360,10 @@ mlflow_docker_down:
 # Architecture Mismatch : from (ARM64/Apple Silicon) to (AMD64/x86_64) -> add --platform linux/amd64
 mlflow_docker_build: mlflow_docker_down
 	@echo Building image "$(MLFLOW_DOCKER_IMAGE_NAME)"
+	docker build --no-cache -f mlflow-tracking/Dockerfile -t $(MLFLOW_DOCKER_IMAGE_NAME) . 
+
+mlflow_docker_build_artifact: mlflow_docker_down
+	@echo Building image "$(MLFLOW_DOCKER_IMAGE_NAME)"
 	docker build --platform linux/amd64 --no-cache -f mlflow-tracking/Dockerfile -t $(MLFLOW_DOCKER_IMAGE_NAME) . 
 
 # run container, overwrites PORT and GOOGLE_APPLICATION_CREDENTIALS
@@ -273,7 +374,7 @@ mlflow_docker_run: mlflow_docker_build
 		--name $(MLFLOW_DOCKER_CONTAINER_NAME) \
 		--env-file .env \
 		-e GOOGLE_APPLICATION_CREDENTIALS='/app/service-account.json' \
-		-e ARTIFACT_ROOT=$(GCS_BUCKET_NAME) \
+		-e ARTIFACT_ROOT=gs://$(GCS_MLFLOW_BUCKET_NAME) \
 		-e BACKEND_STORE_URI=$(BACKEND_STORE_URI) \
 		-e PORT=$(MLFLOW_PORT) \
 		-v $(shell pwd)/$(PATH_SERVICE_ACCOUNT_KEY):/app/service-account.json \
@@ -291,14 +392,14 @@ mlflow_tag_push: mlflow_tag_artifact mlflow_push_artifact
 
 # Memory limit of 512 MiB exceeded, need to have 1G
 # consider taking out the port value
-mlflow_deploy: mlflow_docker_build mlflow_tag_push
+mlflow_deploy: mlflow_docker_build_artifact mlflow_tag_push
 	gcloud run deploy $(MLFLOW_DOCKER_IMAGE_NAME) \
 	--image=$(MLFLOW_ARTIFACT_IMAGE) \
-	--region=$(MLFLOW_REGION) \
+	--region=$(GCP_REGION) \
 	--platform=managed \
 	--allow-unauthenticated \
-    --memory=1Gi \
-	--set-env-vars ARTIFACT_ROOT=$(GCS_BUCKET_NAME) \
+	--memory=1Gi \
+	--set-env-vars ARTIFACT_ROOT=gs://$(GCS_MLFLOW_BUCKET_NAME) \
 	--set-env-vars BACKEND_STORE_URI=$(BACKEND_STORE_URI) \
 	--service-account mlflow-executor@frugalai-2025.iam.gserviceaccount.com
 	--port=8080
